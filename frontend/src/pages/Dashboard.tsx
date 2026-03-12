@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Plus, MapPin, Clock } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Plus, MapPin, Clock, Printer } from "lucide-react";
 import BoxCard from "@/components/boxes/BoxCard";
 import CreateBoxModal from "@/components/boxes/CreateBoxModal";
 import { listBoxes } from "@/api/client";
@@ -13,6 +14,7 @@ export default function Dashboard() {
   const [sort, setSort] = useState<"recent" | "proximity">("recent");
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const navTo = useNavigate();
   const geo = useGeolocation();
 
   const fetchBoxes = async () => {
@@ -79,6 +81,13 @@ export default function Dashboard() {
               Near Me
             </button>
           </div>
+          <button
+            onClick={() => navTo("/qr-batch")}
+            className="flex items-center gap-2 px-3 py-2 text-xs font-medium uppercase tracking-wider bg-slate-100 dark:bg-navy-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-navy-700 rounded-md transition-colors"
+          >
+            <Printer size={14} />
+            Print All QR
+          </button>
           <button
             onClick={() => setShowCreate(true)}
             className="flex items-center gap-2 px-4 py-2 text-sm font-semibold uppercase tracking-wider bg-amber-500 hover:bg-amber-600 text-slate-900 rounded-md transition-colors"

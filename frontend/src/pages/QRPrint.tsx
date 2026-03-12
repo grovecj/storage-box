@@ -30,6 +30,44 @@ export default function QRPrint() {
 
   return (
     <div>
+      <style>{`
+        @media print {
+          .no-print { display: none !important; }
+          body { margin: 0; padding: 0; }
+          .qr-label {
+            width: 2.5in;
+            height: 2.5in;
+            border: 2px solid #000;
+            padding: 0.15in;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto;
+            box-sizing: border-box;
+          }
+          .qr-label svg {
+            width: 1.8in !important;
+            height: 1.8in !important;
+          }
+          .qr-label-code {
+            font-size: 11pt;
+            font-weight: bold;
+            font-family: monospace;
+            letter-spacing: 0.05em;
+            margin-top: 4px;
+          }
+          .qr-label-name {
+            font-size: 8pt;
+            margin-top: 2px;
+          }
+          .qr-screen-preview { display: none; }
+        }
+        @media not print {
+          .qr-print-only { display: none; }
+        }
+      `}</style>
+
       {/* Controls - hidden when printing */}
       <div className="no-print flex items-center justify-between mb-8">
         <button
@@ -48,30 +86,38 @@ export default function QRPrint() {
         </button>
       </div>
 
-      {/* QR Code - print optimized */}
-      <div className="flex flex-col items-center py-8">
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
+      {/* Screen preview */}
+      <div className="qr-screen-preview flex flex-col items-center py-8">
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200" style={{ width: "2.5in", height: "2.5in", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
           <QRCodeSVG
             value={qrUrl}
-            size={256}
+            size={172}
             level="M"
             includeMargin={false}
-            imageSettings={{
-              src: "",
-              height: 0,
-              width: 0,
-              excavate: false,
-            }}
           />
+          <div className="mt-1 text-center">
+            <div className="text-sm font-mono font-bold tracking-wider">
+              {box.box_code}
+            </div>
+            <div className="text-xs text-slate-600 truncate max-w-[2in]">
+              {box.name}
+            </div>
+          </div>
         </div>
+        <p className="mt-4 text-xs text-slate-400">Prints at 2.5" &times; 2.5" with border</p>
+      </div>
 
-        <div className="mt-6 text-center">
-          <div className="text-2xl font-mono font-bold tracking-wider text-amber-600 dark:text-amber-400">
-            {box.box_code}
-          </div>
-          <div className="mt-1 text-lg font-semibold text-slate-700 dark:text-slate-300">
-            {box.name}
-          </div>
+      {/* Print-only label */}
+      <div className="qr-print-only">
+        <div className="qr-label">
+          <QRCodeSVG
+            value={qrUrl}
+            size={172}
+            level="M"
+            includeMargin={false}
+          />
+          <div className="qr-label-code">{box.box_code}</div>
+          <div className="qr-label-name">{box.name}</div>
         </div>
       </div>
     </div>

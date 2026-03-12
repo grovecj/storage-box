@@ -10,7 +10,8 @@ export default function Reports() {
   const [allBoxes, setAllBoxes] = useState(true);
   const [selectedBoxIds, setSelectedBoxIds] = useState<number[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [format, setFormat] = useState<"html" | "pdf" | "csv">("html");
+  const [locationFilter, setLocationFilter] = useState("");
+  const [format, setFormat] = useState<"html" | "pdf" | "csv" | "text">("html");
   const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
@@ -36,6 +37,7 @@ export default function Reports() {
       const request: ReportRequest = {
         box_ids: allBoxes ? null : selectedBoxIds,
         tag_filter: selectedTags,
+        location_filter: locationFilter.trim() || undefined,
         format,
       };
 
@@ -43,6 +45,10 @@ export default function Reports() {
 
       if (format === "html") {
         const blob = new Blob([response.data as string], { type: "text/html" });
+        const url = URL.createObjectURL(blob);
+        window.open(url, "_blank");
+      } else if (format === "text") {
+        const blob = new Blob([response.data as string], { type: "text/plain; charset=utf-8" });
         const url = URL.createObjectURL(blob);
         window.open(url, "_blank");
       } else if (format === "pdf") {
@@ -150,11 +156,26 @@ export default function Reports() {
           </div>
         </div>
 
+        {/* Location filter */}
+        <div>
+          <h2 className="section-label mb-3 flex items-center gap-1">
+            <Filter size={12} />
+            Filter by Location
+          </h2>
+          <input
+            type="text"
+            value={locationFilter}
+            onChange={(e) => setLocationFilter(e.target.value)}
+            placeholder='e.g. "Garage" or "Shelf 3"'
+            className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-navy-800 border border-slate-200 dark:border-navy-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400/50 text-slate-800 dark:text-slate-200"
+          />
+        </div>
+
         {/* Format */}
         <div>
           <h2 className="section-label mb-3">Format</h2>
           <div className="flex items-center bg-slate-100 dark:bg-navy-800 rounded-md overflow-hidden w-fit">
-            {(["html", "pdf", "csv"] as const).map((f) => (
+            {(["html", "pdf", "csv", "text"] as const).map((f) => (
               <button
                 key={f}
                 onClick={() => setFormat(f)}

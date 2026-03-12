@@ -29,10 +29,10 @@ export const getBox = (id: number) => api.get<StorageBox>(`/boxes/${id}`);
 export const getBoxByCode = (code: string) =>
   api.get<StorageBox>(`/boxes/code/${code}`);
 
-export const createBox = (data: { name: string; location?: { latitude: number; longitude: number } | null }) =>
+export const createBox = (data: { name: string; location?: { latitude: number; longitude: number } | null; location_name?: string | null }) =>
   api.post<StorageBox>("/boxes", data);
 
-export const updateBox = (id: number, data: { name?: string; location?: { latitude: number; longitude: number } | null }) =>
+export const updateBox = (id: number, data: { name?: string; location?: { latitude: number; longitude: number } | null; location_name?: string | null }) =>
   api.put<StorageBox>(`/boxes/${id}`, data);
 
 export const deleteBox = (id: number) => api.delete(`/boxes/${id}`);
@@ -69,7 +69,7 @@ export const createTag = (name: string) => api.post<Tag>("/tags", { name });
 // Reports
 export const generateReport = (data: ReportRequest) =>
   api.post("/reports", data, {
-    responseType: data.format === "html" ? "text" : "blob",
+    responseType: data.format === "html" || data.format === "text" ? "text" : "blob",
   });
 
 // Audit Log

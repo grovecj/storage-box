@@ -37,11 +37,11 @@ export default function BoxCard({ box }: BoxCardProps) {
             <Package size={14} />
             {box.item_count} item{box.item_count !== 1 ? "s" : ""}
           </span>
-          {box.latitude != null && box.longitude != null && (
+          {(box.location_name || (box.latitude != null && box.longitude != null)) && (
             <span className="flex items-center gap-1">
               <MapPin size={14} />
-              <span className="font-mono text-xs">
-                {box.latitude.toFixed(3)}, {box.longitude.toFixed(3)}
+              <span className="text-xs truncate max-w-[140px]">
+                {box.location_name || `${box.latitude!.toFixed(3)}, ${box.longitude!.toFixed(3)}`}
               </span>
             </span>
           )}

@@ -30,3 +30,10 @@ async def generate_report(
             media_type="text/csv",
             headers={"Content-Disposition": "attachment; filename=inventory-report.csv"},
         )
+    elif data.format == "text":
+        text_content = await report_service.generate_text_report(db, data)
+        return Response(
+            content=text_content,
+            media_type="text/plain; charset=utf-8",
+            headers={"Content-Disposition": "attachment; filename=inventory-report.txt"},
+        )

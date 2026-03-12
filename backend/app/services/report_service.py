@@ -45,7 +45,8 @@ REPORT_HTML_TEMPLATE = """
   <h2>{{ box.box_code }} &mdash; {{ box.name }}</h2>
 </div>
 <p class="box-meta">
-  {% if box.latitude and box.longitude %}Location: {{ box.latitude }}, {{ box.longitude }} | {% endif %}
+  {% if box.location_name %}Location: {{ box.location_name }} | {% endif %}
+  {% if box.latitude and box.longitude %}GPS: {{ box.latitude }}, {{ box.longitude }} | {% endif %}
   Items: {{ box["items"] | length }}
 </p>
 <table>
@@ -91,6 +92,9 @@ async def _fetch_report_data(
     if request.box_ids:
         query = query.where(StorageBox.id.in_(request.box_ids))
 
+    if request.location_filter:
+        query = query.where(StorageBox.location_name.icontains(request.location_filter))
+
     result = await db.execute(query)
     boxes = result.scalars().unique().all()
 
@@ -131,6 +135,7 @@ async def _fetch_report_data(
             "name": box.name,
             "latitude": lat,
             "longitude": lng,
+            "location_name": box.location_name,
             "items": items,
         })
 
@@ -152,11 +157,62 @@ async def generate_pdf_report(db: AsyncSession, request: ReportRequest) -> bytes
     return HTML(string=html).write_pdf()
 
 
+async def generate_text_report(db: AsyncSession, request: ReportRequest) -> str:
+    data = await _fetch_report_data(db, request)
+    generated_at = datetime.now().strftime("%Y-%m-%d %H:%M")
+
+    lines = []
+    sep = "\u2550" * 43
+    thin_sep = "\u2500" * 43
+
+    lines.append(sep)
+    lines.append("STORAGE BOX INVENTORY REPORT")
+    lines.append(f"Generated: {generated_at}")
+    lines.append(sep)
+    lines.append("")
+
+    total_boxes = len(data)
+    grand_total_items = 0
+    grand_total_qty = 0
+
+    for box in data:
+        lines.append(f"{box['box_code']} \u2014 {box['name']}")
+        if box.get("location_name"):
+            lines.append(f"Location: {box['location_name']}")
+        elif box.get("latitude") and box.get("longitude"):
+            lines.append(f"Location: {box['latitude']}, {box['longitude']}")
+        lines.append(thin_sep)
+
+        items = box["items"]
+        box_qty = 0
+        for i, item in enumerate(items, 1):
+            tags_str = f"  [{', '.join(item['tags'])}]" if item["tags"] else ""
+            qty = item["quantity"]
+            box_qty += qty
+            lines.append(f"  {i:>3}. {item['name']:<25} x{qty}{tags_str}")
+
+        if not items:
+            lines.append("  (no items)")
+
+        lines.append(thin_sep)
+        lines.append(f"  Items: {len(items)} | Total Qty: {box_qty}")
+        lines.append("")
+
+        grand_total_items += len(items)
+        grand_total_qty += box_qty
+
+    lines.append(sep)
+    lines.append(f"Total: {total_boxes} boxes | {grand_total_items} items | {grand_total_qty} qty")
+    lines.append(sep)
+
+    return "\n".join(lines)
+
+
 async def generate_csv_report(db: AsyncSession, request: ReportRequest) -> str:
     data = await _fetch_report_data(db, request)
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["Box Code", "Box Name", "Latitude", "Longitude", "Item", "Quantity", "Tags"])
+    writer.writerow(["Box Code", "Box Name", "Location", "Latitude", "Longitude", "Item", "Quantity", "Tags"])
 
     for box in data:
         if box["items"]:
@@ -164,6 +220,7 @@ async def generate_csv_report(db: AsyncSession, request: ReportRequest) -> str:
                 writer.writerow([
                     box["box_code"],
                     box["name"],
+                    box.get("location_name", ""),
                     box.get("latitude", ""),
                     box.get("longitude", ""),
                     item["name"],
@@ -174,6 +231,7 @@ async def generate_csv_report(db: AsyncSession, request: ReportRequest) -> str:
             writer.writerow([
                 box["box_code"],
                 box["name"],
+                box.get("location_name", ""),
                 box.get("latitude", ""),
                 box.get("longitude", ""),
                 "", "", "",

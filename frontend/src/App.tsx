@@ -6,6 +6,7 @@ import BoxDetail from "@/pages/BoxDetail";
 import SearchResults from "@/pages/SearchResults";
 import Reports from "@/pages/Reports";
 import QRPrint from "@/pages/QRPrint";
+import QRBatchPrint from "@/pages/QRBatchPrint";
 
 export default function App() {
   const { theme, setTheme } = useTheme();
@@ -21,6 +22,7 @@ export default function App() {
           <Route path="/search" element={<SearchResults />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/boxes/:id/qr" element={<QRPrint />} />
+          <Route path="/qr-batch" element={<QRBatchPrint />} />
         </Routes>
       </main>
     </div>

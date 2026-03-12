@@ -19,6 +19,7 @@ def _box_to_response(box: StorageBox, item_count: int = 0, lat: float | None = N
         name=box.name,
         latitude=lat,
         longitude=lng,
+        location_name=box.location_name,
         item_count=item_count,
         created_at=box.created_at,
         updated_at=box.updated_at,
@@ -53,7 +54,7 @@ async def create_box(db: AsyncSession, data: BoxCreate) -> BoxResponse:
         lng = data.location.longitude
         location = _make_point(lat, lng)
 
-    box = StorageBox(box_code=box_code, name=data.name, location=location)
+    box = StorageBox(box_code=box_code, name=data.name, location=location, location_name=data.location_name)
     db.add(box)
     await db.flush()
     await db.refresh(box)
@@ -154,6 +155,8 @@ async def update_box(db: AsyncSession, box_id: int, data: BoxUpdate) -> BoxRespo
         box.name = data.name
     if data.location is not None:
         box.location = _make_point(data.location.latitude, data.location.longitude)
+    if data.location_name is not None:
+        box.location_name = data.location_name
 
     await db.flush()
     await db.refresh(box)

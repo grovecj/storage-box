@@ -16,6 +16,7 @@ export default function CreateBoxModal({
   onCreated,
 }: CreateBoxModalProps) {
   const [name, setName] = useState("");
+  const [locationName, setLocationName] = useState("");
   const [useLocation, setUseLocation] = useState(false);
   const [manualLat, setManualLat] = useState("");
   const [manualLng, setManualLng] = useState("");
@@ -39,8 +40,13 @@ export default function CreateBoxModal({
         };
       }
 
-      await createBox({ name: name.trim(), location });
+      await createBox({
+        name: name.trim(),
+        location,
+        location_name: locationName.trim() || null,
+      });
       setName("");
+      setLocationName("");
       setManualLat("");
       setManualLng("");
       setUseLocation(false);
@@ -69,7 +75,18 @@ export default function CreateBoxModal({
         </div>
 
         <div>
-          <label className="section-label">Location</label>
+          <label className="section-label">Location Name</label>
+          <input
+            type="text"
+            value={locationName}
+            onChange={(e) => setLocationName(e.target.value)}
+            placeholder='e.g. "Garage Shelf 3"'
+            className="mt-1 w-full px-3 py-2 text-sm bg-slate-50 dark:bg-navy-800 border border-slate-200 dark:border-navy-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400/50 text-slate-800 dark:text-slate-200"
+          />
+        </div>
+
+        <div>
+          <label className="section-label">GPS Location</label>
           <div className="mt-2 space-y-2">
             <button
               type="button"

@@ -42,6 +42,8 @@ export default function BoxDetail() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState("");
+  const [editingLocation, setEditingLocation] = useState(false);
+  const [locationInput, setLocationInput] = useState("");
   const [showMap, setShowMap] = useState(false);
 
   // Audit log
@@ -56,6 +58,7 @@ export default function BoxDetail() {
         : await getBox(parseInt(id!));
       setBox(res.data);
       setNameInput(res.data.name);
+      setLocationInput(res.data.location_name || "");
     } finally {
       setLoading(false);
     }
@@ -84,6 +87,13 @@ export default function BoxDetail() {
     if (!box || !nameInput.trim()) return;
     await updateBox(box.id, { name: nameInput.trim() });
     setEditingName(false);
+    fetchBox();
+  };
+
+  const handleSaveLocation = async () => {
+    if (!box) return;
+    await updateBox(box.id, { location_name: locationInput.trim() || null });
+    setEditingLocation(false);
     fetchBox();
   };
 
@@ -218,7 +228,48 @@ export default function BoxDetail() {
             )}
 
             <div className="flex flex-wrap items-center gap-4 mt-3 text-sm text-slate-500 dark:text-slate-400">
-              {box.latitude != null && box.longitude != null ? (
+              {editingLocation ? (
+                <div className="flex items-center gap-2">
+                  <MapPin size={14} />
+                  <input
+                    type="text"
+                    value={locationInput}
+                    onChange={(e) => setLocationInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleSaveLocation()}
+                    placeholder='e.g. "Garage Shelf 3"'
+                    className="text-sm bg-slate-50 dark:bg-navy-800 border border-slate-200 dark:border-navy-700 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-amber-400/50 text-slate-800 dark:text-slate-100"
+                    autoFocus
+                  />
+                  <button
+                    onClick={handleSaveLocation}
+                    className="px-2 py-1 text-xs font-semibold uppercase bg-amber-500 text-slate-900 rounded"
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEditingLocation(false);
+                      setLocationInput(box.location_name || "");
+                    }}
+                    className="px-2 py-1 text-xs text-slate-500 hover:text-slate-700"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setEditingLocation(true)}
+                  className="flex items-center gap-1 hover:text-amber-500 transition-colors cursor-pointer"
+                  title="Edit location name"
+                >
+                  <MapPin size={14} />
+                  <span className="text-xs">
+                    {box.location_name || "Set location name"}
+                  </span>
+                  <Edit size={12} className="opacity-0 group-hover:opacity-100" />
+                </button>
+              )}
+              {box.latitude != null && box.longitude != null && (
                 <button
                   onClick={() => setShowMap(!showMap)}
                   className="flex items-center gap-1 hover:text-amber-500 transition-colors cursor-pointer"
@@ -229,8 +280,6 @@ export default function BoxDetail() {
                     {box.latitude.toFixed(5)}, {box.longitude.toFixed(5)}
                   </span>
                 </button>
-              ) : (
-                <span className="text-slate-400">No location set</span>
               )}
               <span>
                 Created{" "}

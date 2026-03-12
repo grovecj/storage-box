@@ -9,6 +9,7 @@ export interface StorageBox {
   name: string;
   latitude: number | null;
   longitude: number | null;
+  location_name: string | null;
   item_count: number;
   created_at: string;
   updated_at: string;
@@ -97,5 +98,6 @@ export interface TransferRequest {
 export interface ReportRequest {
   box_ids?: number[] | null;
   tag_filter: string[];
-  format: "html" | "pdf" | "csv";
+  location_filter?: string;
+  format: "html" | "pdf" | "csv" | "text";
 }

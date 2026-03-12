@@ -18,6 +18,7 @@ class StorageBox(Base):
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     location = mapped_column(Geography(geometry_type="POINT", srid=4326), nullable=True)
+    location_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     owner_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

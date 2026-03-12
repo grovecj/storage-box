@@ -11,11 +11,13 @@ class LocationSchema(BaseModel):
 class BoxCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     location: LocationSchema | None = None
+    location_name: str | None = None
 
 
 class BoxUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     location: LocationSchema | None = None
+    location_name: str | None = Field(default=None, max_length=255)
 
 
 class BoxResponse(BaseModel):
@@ -24,6 +26,7 @@ class BoxResponse(BaseModel):
     name: str
     latitude: float | None = None
     longitude: float | None = None
+    location_name: str | None = None
     item_count: int = 0
     created_at: datetime
     updated_at: datetime
