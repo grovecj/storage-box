@@ -1,7 +1,30 @@
-do_token     = "your-digitalocean-api-token"
-ssh_key_name = "your-ssh-key-name"
-region       = "nyc3"
-droplet_size = "s-1vcpu-1gb"
-db_size      = "db-s-1vcpu-1gb"
-domain       = "cartergrove.me"
-subdomain    = "boxes"
+# Copy to terraform.tfvars and fill in values
+# DO NOT commit terraform.tfvars to version control
+
+# DigitalOcean API Token
+do_token = "dop_v1_your_token_here"
+
+# Existing database cluster name (managed by mlb-stats terraform)
+database_cluster_name = "mlb-stats-db"
+
+# Application secret key (generate with: openssl rand -hex 32)
+secret_key = "your-secret-key-here"
+
+# Custom domain (optional)
+custom_domain = "boxes.cartergrove.me"
+
+# Optional overrides
+# region         = "nyc"
+# instance_size  = "basic-xxs"
+# instance_count = 1
+# github_repo    = "grovecj/storage-box"
+# github_branch  = "main"
+
+# IMPORTANT: After `terraform apply`, copy the app_id output and add it
+# to mlb-stats/terraform/terraform.tfvars as an additional_trusted_source:
+#
+# additional_trusted_sources = [
+#   { type = "app", value = "<storage-box-app-id>" },
+# ]
+#
+# Then run `terraform apply` in mlb-stats/terraform/ to update the DB firewall.

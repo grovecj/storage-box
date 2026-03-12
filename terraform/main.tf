@@ -1,10 +1,10 @@
 terraform {
-  required_version = ">= 1.5"
+  required_version = ">= 1.0"
 
   required_providers {
     digitalocean = {
       source  = "digitalocean/digitalocean"
-      version = "~> 2.36"
+      version = "~> 2.34"
     }
   }
 }
@@ -13,87 +13,97 @@ provider "digitalocean" {
   token = var.do_token
 }
 
-# SSH Key
-data "digitalocean_ssh_key" "main" {
-  name = var.ssh_key_name
+# Look up the existing managed PostgreSQL cluster (owned by mlb-stats)
+data "digitalocean_database_cluster" "postgres" {
+  name = var.database_cluster_name
 }
 
-# Droplet for the application
-resource "digitalocean_droplet" "app" {
-  image    = "ubuntu-24-04-x64"
-  name     = "storage-box"
-  region   = var.region
-  size     = var.droplet_size
-  ssh_keys = [data.digitalocean_ssh_key.main.id]
-
-  user_data = <<-EOF
-    #!/bin/bash
-    apt-get update
-    apt-get install -y docker.io docker-compose-v2 nginx certbot python3-certbot-nginx
-    systemctl enable docker
-    systemctl start docker
-  EOF
-
-  tags = ["storage-box"]
+# Create a dedicated database for storage-box on the shared cluster
+resource "digitalocean_database_db" "storagebox" {
+  cluster_id = data.digitalocean_database_cluster.postgres.id
+  name       = "storagebox"
 }
 
-# Managed PostgreSQL Database
-resource "digitalocean_database_cluster" "db" {
-  name       = "storage-box-db"
-  engine     = "pg"
-  version    = "16"
-  size       = var.db_size
-  region     = var.region
-  node_count = 1
+# Create a dedicated user for storage-box
+resource "digitalocean_database_user" "storagebox" {
+  cluster_id = data.digitalocean_database_cluster.postgres.id
+  name       = "storagebox"
 }
 
-# Firewall
-resource "digitalocean_firewall" "app" {
-  name        = "storage-box-fw"
-  droplet_ids = [digitalocean_droplet.app.id]
+# App Platform Application
+resource "digitalocean_app" "storage_box" {
+  spec {
+    name   = "storage-box"
+    region = var.region
 
-  inbound_rule {
-    protocol         = "tcp"
-    port_range       = "22"
-    source_addresses = ["0.0.0.0/0", "::/0"]
-  }
+    # Custom domain
+    dynamic "domain" {
+      for_each = var.custom_domain != "" ? [var.custom_domain] : []
+      content {
+        name = domain.value
+        type = "PRIMARY"
+      }
+    }
 
-  inbound_rule {
-    protocol         = "tcp"
-    port_range       = "80"
-    source_addresses = ["0.0.0.0/0", "::/0"]
-  }
+    alert {
+      rule = "DEPLOYMENT_FAILED"
+    }
 
-  inbound_rule {
-    protocol         = "tcp"
-    port_range       = "443"
-    source_addresses = ["0.0.0.0/0", "::/0"]
-  }
+    service {
+      name               = "web"
+      instance_count     = var.instance_count
+      instance_size_slug = var.instance_size
+      http_port          = 8080
 
-  outbound_rule {
-    protocol              = "tcp"
-    port_range            = "1-65535"
-    destination_addresses = ["0.0.0.0/0", "::/0"]
-  }
+      github {
+        repo           = var.github_repo
+        branch         = var.github_branch
+        deploy_on_push = true
+      }
 
-  outbound_rule {
-    protocol              = "udp"
-    port_range            = "1-65535"
-    destination_addresses = ["0.0.0.0/0", "::/0"]
-  }
+      dockerfile_path = "Dockerfile"
 
-  outbound_rule {
-    protocol              = "icmp"
-    destination_addresses = ["0.0.0.0/0", "::/0"]
+      health_check {
+        http_path             = "/api/v1/health"
+        initial_delay_seconds = 30
+        period_seconds        = 30
+        timeout_seconds       = 10
+        failure_threshold     = 3
+      }
+
+      env {
+        key   = "DATABASE_URL"
+        value = "postgresql+asyncpg://${digitalocean_database_user.storagebox.name}:${digitalocean_database_user.storagebox.password}@${data.digitalocean_database_cluster.postgres.private_host}:${data.digitalocean_database_cluster.postgres.port}/${digitalocean_database_db.storagebox.name}?ssl=require"
+        type  = "SECRET"
+      }
+
+      env {
+        key   = "APP_BASE_URL"
+        value = var.custom_domain != "" ? "https://${var.custom_domain}" : ""
+        type  = "GENERAL"
+      }
+
+      env {
+        key   = "APP_ENV"
+        value = "production"
+        type  = "GENERAL"
+      }
+
+      env {
+        key   = "SECRET_KEY"
+        value = var.secret_key
+        type  = "SECRET"
+      }
+    }
   }
 }
 
-# DNS Record (optional - requires domain managed by DO)
-resource "digitalocean_record" "app" {
-  count  = var.domain != "" ? 1 : 0
-  domain = var.domain
-  type   = "A"
-  name   = var.subdomain
-  value  = digitalocean_droplet.app.ipv4_address
-  ttl    = 300
+# DNS Record for custom subdomain
+resource "digitalocean_record" "app_cname" {
+  count  = var.custom_domain != "" ? 1 : 0
+  domain = join(".", slice(split(".", var.custom_domain), 1, length(split(".", var.custom_domain))))
+  type   = "CNAME"
+  name   = split(".", var.custom_domain)[0]
+  value  = "${replace(digitalocean_app.storage_box.default_ingress, "https://", "")}."
+  ttl    = 3600
 }

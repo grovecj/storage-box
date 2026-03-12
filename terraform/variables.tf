@@ -4,37 +4,50 @@ variable "do_token" {
   sensitive   = true
 }
 
-variable "ssh_key_name" {
-  description = "Name of the SSH key in DigitalOcean"
-  type        = string
-}
-
 variable "region" {
   description = "DigitalOcean region"
   type        = string
-  default     = "nyc3"
+  default     = "nyc"
 }
 
-variable "droplet_size" {
-  description = "Droplet size slug"
+variable "github_repo" {
+  description = "GitHub repository (owner/repo format)"
   type        = string
-  default     = "s-1vcpu-1gb"
+  default     = "grovecj/storage-box"
 }
 
-variable "db_size" {
-  description = "Database cluster size slug"
+variable "github_branch" {
+  description = "GitHub branch to deploy"
   type        = string
-  default     = "db-s-1vcpu-1gb"
+  default     = "main"
 }
 
-variable "domain" {
-  description = "Domain name managed by DigitalOcean (leave empty to skip DNS)"
+variable "instance_size" {
+  description = "App Platform instance size"
+  type        = string
+  default     = "basic-xxs"
+}
+
+variable "instance_count" {
+  description = "Number of instances"
+  type        = number
+  default     = 1
+}
+
+variable "database_cluster_name" {
+  description = "Name of the existing managed PostgreSQL cluster"
+  type        = string
+  default     = "mlb-stats-db"
+}
+
+variable "custom_domain" {
+  description = "Custom domain (e.g., boxes.cartergrove.me)"
   type        = string
   default     = ""
 }
 
-variable "subdomain" {
-  description = "Subdomain for the app"
+variable "secret_key" {
+  description = "Application secret key"
   type        = string
-  default     = "boxes"
+  sensitive   = true
 }

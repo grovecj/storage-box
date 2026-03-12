@@ -1,7 +1,11 @@
+import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from app.config import settings
@@ -55,3 +59,17 @@ app.include_router(config.router, prefix="/api/v1")
 @app.get("/api/v1/health")
 async def health():
     return {"status": "ok"}
+
+
+# Serve frontend static files in production
+static_dir = Path(__file__).parent.parent / "static"
+if static_dir.is_dir():
+    app.mount("/assets", StaticFiles(directory=str(static_dir / "assets")), name="static-assets")
+
+    @app.get("/{path:path}")
+    async def serve_spa(request: Request, path: str):
+        # Serve actual files if they exist, otherwise fall back to index.html (SPA routing)
+        file_path = static_dir / path
+        if file_path.is_file():
+            return FileResponse(str(file_path))
+        return FileResponse(str(static_dir / "index.html"))

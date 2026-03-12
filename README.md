@@ -146,14 +146,17 @@ API docs are available at `http://localhost:8000/docs` (Swagger UI).
 
 ## Deployment
 
-### DigitalOcean with Terraform
+### DigitalOcean App Platform (Recommended)
+
+The app deploys to DigitalOcean App Platform, sharing a managed PostgreSQL cluster
+with other apps (e.g., mlb-stats). SSL and auto-deploy on push are handled automatically.
 
 ```bash
 cd terraform
 
 # Copy and fill in variables
 cp terraform.tfvars.example terraform.tfvars
-# Edit terraform.tfvars with your DO token, SSH key name, etc.
+# Edit terraform.tfvars with your DO token, secret key, domain, etc.
 
 # Deploy
 terraform init
@@ -162,36 +165,26 @@ terraform apply
 ```
 
 This provisions:
-- 1x Droplet (Ubuntu 24.04) with Docker pre-installed
-- 1x Managed PostgreSQL 16 cluster
-- Firewall rules (SSH, HTTP, HTTPS)
-- Optional DNS record for your domain
+- App Platform service (auto-deploys from GitHub on push)
+- Dedicated `storagebox` database and user on the shared PostgreSQL cluster
+- CNAME DNS record for custom domain (automatic SSL)
 
-### Deploying to Any Linux Server
+**After deploy**, copy the `app_id` output and add it to the mlb-stats terraform
+as an `additional_trusted_source` to grant database firewall access:
 
-```bash
-# On the server:
-# 1. Install Docker and Docker Compose
-# 2. Clone the repo
-git clone https://github.com/grovecj/storage-box.git
-cd storage-box
-
-# 3. Configure environment
-cp .env.example .env
-# Edit .env — set DATABASE_URL, APP_BASE_URL, SECRET_KEY
-
-# 4. Build and run
-docker compose -f docker-compose.yml up -d --build
+```hcl
+# In mlb-stats/terraform/terraform.tfvars:
+additional_trusted_sources = [
+  { type = "app", value = "<storage-box-app-id>" },
+]
 ```
 
-### SSL/HTTPS
+Then run `terraform apply` in `mlb-stats/terraform/` to update the DB firewall.
 
-For production, install Certbot on the host and configure Nginx with SSL:
+### Database Connection Limits
 
-```bash
-apt install certbot python3-certbot-nginx
-certbot --nginx -d boxes.cartergrove.me
-```
+The backend is configured to use a maximum of **3 database connections** (pool_size=2, max_overflow=1)
+to minimize impact on the shared database cluster.
 
 ## Configuration
 

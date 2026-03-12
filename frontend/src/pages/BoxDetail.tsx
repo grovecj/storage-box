@@ -14,14 +14,11 @@ import ItemTable from "@/components/items/ItemTable";
 import AddItemModal from "@/components/items/AddItemModal";
 import TransferModal from "@/components/items/TransferModal";
 import { getBox, getBoxByCode, updateBox, deleteBox, getAuditLog } from "@/api/client";
-import { useGeolocation } from "@/hooks/useGeolocation";
 import type { StorageBox, BoxItem, AuditLogEntry } from "@/types";
 
 export default function BoxDetail() {
   const { id, code } = useParams();
   const navigate = useNavigate();
-  const geo = useGeolocation();
-
   const [box, setBox] = useState<StorageBox | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"items" | "audit">("items");
@@ -77,18 +74,36 @@ export default function BoxDetail() {
     fetchBox();
   };
 
+  const [locationUpdating, setLocationUpdating] = useState(false);
+
   const handleUpdateLocation = async () => {
     if (!box) return;
-    geo.requestLocation();
-  };
-
-  useEffect(() => {
-    if (box && geo.latitude && geo.longitude) {
-      updateBox(box.id, {
-        location: { latitude: geo.latitude, longitude: geo.longitude },
-      }).then(() => fetchBox());
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser");
+      return;
     }
-  }, [geo.latitude, geo.longitude]);
+    setLocationUpdating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          await updateBox(box.id, {
+            location: {
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+            },
+          });
+          await fetchBox();
+        } finally {
+          setLocationUpdating(false);
+        }
+      },
+      (error) => {
+        setLocationUpdating(false);
+        alert(`Location error: ${error.message}`);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
 
   const handleDelete = async () => {
     if (!box) return;
@@ -210,11 +225,12 @@ export default function BoxDetail() {
           <div className="flex items-center gap-2">
             <button
               onClick={handleUpdateLocation}
-              className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium uppercase tracking-wider bg-slate-100 dark:bg-navy-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-navy-700 rounded-md transition-colors"
+              disabled={locationUpdating}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium uppercase tracking-wider bg-slate-100 dark:bg-navy-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-navy-700 rounded-md transition-colors disabled:opacity-50"
               title="Update location"
             >
-              <Crosshair size={14} />
-              Location
+              <Crosshair size={14} className={locationUpdating ? "animate-spin" : ""} />
+              {locationUpdating ? "Locating..." : "Location"}
             </button>
             <button
               onClick={() => navigate(`/boxes/${box.id}/qr`)}

@@ -1,20 +1,24 @@
-output "app_ip" {
-  description = "Public IP of the application droplet"
-  value       = digitalocean_droplet.app.ipv4_address
+output "app_url" {
+  description = "The URL of the deployed application"
+  value       = digitalocean_app.storage_box.live_url
 }
 
-output "db_host" {
-  description = "Database host"
-  value       = digitalocean_database_cluster.db.host
+output "app_id" {
+  description = "The App Platform application ID (add to mlb-stats additional_trusted_sources)"
+  value       = digitalocean_app.storage_box.id
 }
 
-output "db_port" {
-  description = "Database port"
-  value       = digitalocean_database_cluster.db.port
+output "default_hostname" {
+  description = "Default DO hostname for CNAME record"
+  value       = replace(digitalocean_app.storage_box.default_ingress, "https://", "")
 }
 
-output "db_uri" {
-  description = "Database connection URI"
-  value       = digitalocean_database_cluster.db.uri
-  sensitive   = true
+output "database_name" {
+  description = "Database name on the shared cluster"
+  value       = digitalocean_database_db.storagebox.name
+}
+
+output "database_user" {
+  description = "Database user on the shared cluster"
+  value       = digitalocean_database_user.storagebox.name
 }
