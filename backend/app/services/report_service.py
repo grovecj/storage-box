@@ -46,21 +46,21 @@ REPORT_HTML_TEMPLATE = """
 </div>
 <p class="box-meta">
   {% if box.latitude and box.longitude %}Location: {{ box.latitude }}, {{ box.longitude }} | {% endif %}
-  Items: {{ box.items | length }}
+  Items: {{ box["items"] | length }}
 </p>
 <table>
   <thead>
     <tr><th>Item</th><th>Qty</th><th>Tags</th></tr>
   </thead>
   <tbody>
-  {% for item in box.items %}
+  {% for item in box["items"] %}
     <tr>
       <td>{{ item.name }}</td>
       <td>{{ item.quantity }}</td>
       <td>{% for tag in item.tags %}<span class="tag">{{ tag }}</span>{% endfor %}</td>
     </tr>
   {% endfor %}
-  {% if not box.items %}
+  {% if not box["items"] %}
     <tr><td colspan="3" style="text-align:center; color:#999;">No items</td></tr>
   {% endif %}
   </tbody>
