@@ -73,7 +73,7 @@ resource "digitalocean_app" "storage_box" {
 
       env {
         key   = "DATABASE_URL"
-        value = "postgresql+asyncpg://${digitalocean_database_user.storagebox.name}:${digitalocean_database_user.storagebox.password}@${data.digitalocean_database_cluster.postgres.private_host}:${data.digitalocean_database_cluster.postgres.port}/${digitalocean_database_db.storagebox.name}?ssl=require"
+        value = "postgresql+asyncpg://${digitalocean_database_user.storagebox.name}:${urlencode(digitalocean_database_user.storagebox.password)}@${data.digitalocean_database_cluster.postgres.host}:${data.digitalocean_database_cluster.postgres.port}/${digitalocean_database_db.storagebox.name}"
         type  = "SECRET"
       }
 
