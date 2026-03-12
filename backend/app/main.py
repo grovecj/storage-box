@@ -35,7 +35,8 @@ async def lifespan(app: FastAPI):
             ON CONFLICT (name) DO NOTHING
         """))
 
-        # Sync box_code_seq to current max so new codes never reuse old ones
+        # Create and sync box_code_seq so new codes never reuse old ones
+        await conn.execute(text("CREATE SEQUENCE IF NOT EXISTS box_code_seq START 1"))
         await conn.execute(text("""
             SELECT setval('box_code_seq',
                 GREATEST(
