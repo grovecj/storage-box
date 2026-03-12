@@ -7,10 +7,21 @@ from app.config import settings
 
 connect_args = {}
 if settings.app_env == "production":
-    # DigitalOcean managed DB requires SSL
+    # DigitalOcean managed DB requires SSL with certificate verification.
+    # If db_ca_cert_path is empty, the system default CA bundle is used.
     ssl_ctx = ssl_module.create_default_context()
-    ssl_ctx.check_hostname = False
-    ssl_ctx.verify_mode = ssl_module.CERT_NONE
+    if settings.db_ca_cert_path:
+        try:
+            ssl_ctx.load_verify_locations(settings.db_ca_cert_path)
+        except FileNotFoundError:
+            raise RuntimeError(
+                f"Database CA certificate not found at {settings.db_ca_cert_path}. "
+                "Verify DB_CA_CERT_PATH is set correctly."
+            )
+        except ssl_module.SSLError as e:
+            raise RuntimeError(
+                f"Invalid database CA certificate at {settings.db_ca_cert_path}: {e}"
+            )
     connect_args["ssl"] = ssl_ctx
 
 engine = create_async_engine(

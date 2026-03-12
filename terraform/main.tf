@@ -94,6 +94,12 @@ resource "digitalocean_app" "storage_box" {
         value = var.secret_key
         type  = "SECRET"
       }
+
+      env {
+        key   = "DB_CA_CERT_PATH"
+        value = var.db_ca_cert_path
+        type  = "GENERAL"
+      }
     }
   }
 }
