@@ -96,9 +96,9 @@ resource "digitalocean_app" "storage_box" {
       }
 
       env {
-        key   = "DB_CA_CERT_PATH"
-        value = var.db_ca_cert_path
-        type  = "GENERAL"
+        key   = "DB_CA_CERT"
+        value = data.digitalocean_database_cluster.postgres.ca_certificate
+        type  = "SECRET"
       }
     }
   }

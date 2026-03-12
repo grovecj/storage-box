@@ -51,9 +51,3 @@ variable "secret_key" {
   type        = string
   sensitive   = true
 }
-
-variable "db_ca_cert_path" {
-  description = "Path to CA certificate for database SSL verification"
-  type        = string
-  default     = ""
-}
