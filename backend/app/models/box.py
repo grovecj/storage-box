@@ -6,7 +6,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 
-box_id_seq = Sequence("box_id_seq", start=1)
+box_code_seq = Sequence("box_code_seq", start=1)
 
 
 class StorageBox(Base):

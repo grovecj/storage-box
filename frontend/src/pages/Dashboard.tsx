@@ -21,7 +21,7 @@ export default function Dashboard() {
     setLoading(true);
     try {
       const params: Record<string, unknown> = { page, page_size: 20, sort };
-      if (sort === "proximity" && geo.latitude && geo.longitude) {
+      if (sort === "proximity" && geo.latitude != null && geo.longitude != null) {
         params.lat = geo.latitude;
         params.lng = geo.longitude;
       }
@@ -41,7 +41,7 @@ export default function Dashboard() {
 
   const handleSortChange = (newSort: "recent" | "proximity") => {
     if (newSort === "proximity") {
-      if (geo.latitude && geo.longitude) {
+      if (geo.latitude != null && geo.longitude != null) {
         // Already have coordinates — switch immediately
         if (sort !== "proximity") {
           setPage(1);
@@ -66,13 +66,20 @@ export default function Dashboard() {
 
   // Switch to proximity sort once coordinates arrive
   useEffect(() => {
-    if (pendingProximity && geo.latitude && geo.longitude) {
+    if (pendingProximity && geo.latitude != null && geo.longitude != null) {
       setPage(1);
       setBoxes([]);
       setSort("proximity");
       setPendingProximity(false);
     }
   }, [pendingProximity, geo.latitude, geo.longitude]);
+
+  // Reset pending state if geolocation fails
+  useEffect(() => {
+    if (pendingProximity && geo.error) {
+      setPendingProximity(false);
+    }
+  }, [pendingProximity, geo.error]);
 
   return (
     <div>

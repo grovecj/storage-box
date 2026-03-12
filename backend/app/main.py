@@ -35,6 +35,16 @@ async def lifespan(app: FastAPI):
             ON CONFLICT (name) DO NOTHING
         """))
 
+        # Sync box_code_seq to current max so new codes never reuse old ones
+        await conn.execute(text("""
+            SELECT setval('box_code_seq',
+                GREATEST(
+                    (SELECT COALESCE(MAX(CAST(SUBSTR(box_code, 5) AS INTEGER)), 0) FROM storage_boxes),
+                    (SELECT last_value FROM box_code_seq)
+                )
+            )
+        """))
+
     # Seed sample data in development only
     if settings.app_env == "development":
         from app.seed import seed_if_empty

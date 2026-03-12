@@ -4,7 +4,7 @@ Seed data for local development. Runs once on first startup when the database is
 
 import random
 
-from sqlalchemy import select, func, text, Integer
+from sqlalchemy import select, func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.box import StorageBox
@@ -158,7 +158,6 @@ async def seed_if_empty(db: AsyncSession) -> None:
 
     # Create items and distribute across boxes
     item_objects: dict[str, Item] = {}
-    items_added = 0
 
     for box in boxes:
         num_items = random.randint(3, 12)
@@ -191,8 +190,6 @@ async def seed_if_empty(db: AsyncSession) -> None:
             for tag_name in _get_tags_for_item(item_name):
                 if tag_name in tags_by_name:
                     db.add(BoxItemTag(box_item_id=box_item.id, tag_id=tags_by_name[tag_name].id))
-
-            items_added += 1
 
     # Audit entries
     for box in boxes:
