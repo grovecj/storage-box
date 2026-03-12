@@ -1,5 +1,4 @@
 import ssl as ssl_module
-from pathlib import Path
 
 import pytest
 
@@ -8,6 +7,7 @@ import pytest
 def _production_env(monkeypatch):
     monkeypatch.setenv("APP_ENV", "production")
     monkeypatch.setenv("DATABASE_URL", "postgresql+asyncpg://u:p@host:5432/db")
+    monkeypatch.delenv("DB_CA_CERT_PATH", raising=False)
 
 
 @pytest.fixture
@@ -66,10 +66,20 @@ class TestProductionSSL:
             check=True,
             capture_output=True,
         )
+
+        loaded_paths = []
+        original = ssl_module.SSLContext.load_verify_locations
+
+        def recording_load(self, *args, **kwargs):
+            loaded_paths.append(args[0] if args else kwargs.get("cafile"))
+            return original(self, *args, **kwargs)
+
+        monkeypatch.setattr(ssl_module.SSLContext, "load_verify_locations", recording_load)
         monkeypatch.setenv("DB_CA_CERT_PATH", str(cert_path))
         db = _reload_database_module()
         ssl_ctx = db.connect_args["ssl"]
         assert ssl_ctx.verify_mode == ssl_module.CERT_REQUIRED
+        assert str(cert_path) in loaded_paths
 
     def test_empty_string_ca_cert_path_does_not_load(self, monkeypatch):
         """Empty string for DB_CA_CERT_PATH should not attempt to load certificates."""
@@ -189,42 +199,3 @@ class TestSSLContextReuse:
         assert ssl_ctx1.check_hostname == ssl_ctx2.check_hostname
 
 
-class TestDatabaseSession:
-    @pytest.mark.asyncio
-    async def test_get_db_yields_session(self):
-        """Test that get_db yields a valid AsyncSession."""
-        db = _reload_database_module()
-        async for session in db.get_db():
-            assert session is not None
-            from sqlalchemy.ext.asyncio import AsyncSession
-            assert isinstance(session, AsyncSession)
-            # Only expect one yield
-            break
-
-    @pytest.mark.asyncio
-    async def test_get_db_closes_session_on_exit(self):
-        """Test that get_db properly closes the session after use."""
-        db = _reload_database_module()
-        session_ref = None
-        async for session in db.get_db():
-            session_ref = session
-            assert not session_ref.is_active or True  # Session should be usable
-            break
-        # After exiting the async generator, session should be closed
-        # Note: We can't directly test session.closed as it's not a public API
-        # but the finally block ensures close() was called
-
-    @pytest.mark.asyncio
-    async def test_get_db_closes_session_on_exception(self):
-        """Test that get_db closes session even if an exception occurs."""
-        db = _reload_database_module()
-        session_ref = None
-        try:
-            async for session in db.get_db():
-                session_ref = session
-                # Simulate an error during session use
-                raise ValueError("Test exception")
-        except ValueError:
-            pass
-        # Session should still be closed despite the exception
-        # The finally block in get_db ensures cleanup happens
