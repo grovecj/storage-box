@@ -17,7 +17,7 @@ router = APIRouter(prefix="/boxes/{box_id}/items", tags=["items"])
 async def list_items(
     box_id: int,
     page: int = Query(1, ge=1),
-    page_size: int | None = Query(10, ge=1),
+    page_size: int | None = Query(10, ge=0),
     db: AsyncSession = Depends(get_db),
 ):
     # page_size=0 means ALL
