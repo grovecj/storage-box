@@ -1,6 +1,8 @@
+import logging
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
+from urllib.parse import urlparse
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,9 +14,15 @@ from app.config import settings
 from app.database import engine, Base
 from app.routers import boxes, items, transfers, search, tags, reports, audit, config
 
+logger = logging.getLogger("uvicorn.error")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Log connection target (not password) for debugging
+    parsed = urlparse(settings.database_url)
+    logger.info(f"DB connect: host={parsed.hostname} port={parsed.port} db={parsed.path} user={parsed.username} env={settings.app_env}")
+
     # Create extensions and tables on startup
     async with engine.begin() as conn:
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis"))
