@@ -81,17 +81,17 @@ class TestProductionSSL:
         assert ssl_ctx.check_hostname is True
 
     def test_invalid_cert_path_raises_error(self, monkeypatch):
-        """Non-existent certificate path should raise an error."""
+        """Non-existent certificate path should raise a RuntimeError."""
         monkeypatch.setenv("DB_CA_CERT_PATH", "/nonexistent/path/to/cert.pem")
-        with pytest.raises(FileNotFoundError):
+        with pytest.raises(RuntimeError, match="CA certificate not found"):
             _reload_database_module()
 
     def test_invalid_cert_content_raises_error(self, tmp_path, monkeypatch):
-        """File with invalid certificate content should raise an error."""
+        """File with invalid certificate content should raise a RuntimeError."""
         invalid_cert = tmp_path / "invalid.crt"
         invalid_cert.write_text("This is not a valid certificate")
         monkeypatch.setenv("DB_CA_CERT_PATH", str(invalid_cert))
-        with pytest.raises(ssl_module.SSLError):
+        with pytest.raises(RuntimeError, match="Invalid database CA certificate"):
             _reload_database_module()
 
     def test_ssl_protocol_is_secure(self):
