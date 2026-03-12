@@ -1,0 +1,7 @@
+do_token     = "your-digitalocean-api-token"
+ssh_key_name = "your-ssh-key-name"
+region       = "nyc3"
+droplet_size = "s-1vcpu-1gb"
+db_size      = "db-s-1vcpu-1gb"
+domain       = "cartergrove.me"
+subdomain    = "boxes"

@@ -1,0 +1,137 @@
+import { useState, useEffect } from "react";
+import { Plus, MapPin, Clock } from "lucide-react";
+import BoxCard from "@/components/boxes/BoxCard";
+import CreateBoxModal from "@/components/boxes/CreateBoxModal";
+import { listBoxes } from "@/api/client";
+import { useGeolocation } from "@/hooks/useGeolocation";
+import type { StorageBox } from "@/types";
+
+export default function Dashboard() {
+  const [boxes, setBoxes] = useState<StorageBox[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [sort, setSort] = useState<"recent" | "proximity">("recent");
+  const [loading, setLoading] = useState(true);
+  const [showCreate, setShowCreate] = useState(false);
+  const geo = useGeolocation();
+
+  const fetchBoxes = async () => {
+    setLoading(true);
+    try {
+      const params: Record<string, unknown> = { page, page_size: 20, sort };
+      if (sort === "proximity" && geo.latitude && geo.longitude) {
+        params.lat = geo.latitude;
+        params.lng = geo.longitude;
+      }
+      const res = await listBoxes(params as Parameters<typeof listBoxes>[0]);
+      setBoxes(res.data.boxes);
+      setTotal(res.data.total);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchBoxes();
+  }, [page, sort, geo.latitude]);
+
+  const handleNearMe = () => {
+    if (sort === "proximity") {
+      setSort("recent");
+    } else {
+      geo.requestLocation();
+      setSort("proximity");
+    }
+  };
+
+  return (
+    <div>
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div>
+          <h1 className="stencil-heading">Inventory</h1>
+          <p className="mt-2 text-sm font-mono text-slate-500 dark:text-slate-400">
+            {total} box{total !== 1 ? "es" : ""}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center bg-slate-100 dark:bg-navy-800 rounded-md overflow-hidden">
+            <button
+              onClick={() => setSort("recent")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs uppercase tracking-wider font-medium transition-colors ${
+                sort === "recent"
+                  ? "bg-amber-500 text-slate-900"
+                  : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+              }`}
+            >
+              <Clock size={14} />
+              Recent
+            </button>
+            <button
+              onClick={handleNearMe}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs uppercase tracking-wider font-medium transition-colors ${
+                sort === "proximity"
+                  ? "bg-amber-500 text-slate-900"
+                  : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+              }`}
+            >
+              <MapPin size={14} />
+              Near Me
+            </button>
+          </div>
+          <button
+            onClick={() => setShowCreate(true)}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-semibold uppercase tracking-wider bg-amber-500 hover:bg-amber-600 text-slate-900 rounded-md transition-colors"
+          >
+            <Plus size={16} />
+            New Box
+          </button>
+        </div>
+      </div>
+
+      {/* Box Grid */}
+      {loading ? (
+        <div className="text-center py-16 text-slate-400 dark:text-slate-500">
+          Loading boxes...
+        </div>
+      ) : boxes.length === 0 ? (
+        <div className="text-center py-16">
+          <p className="text-slate-400 dark:text-slate-500 mb-4">
+            No storage boxes yet
+          </p>
+          <button
+            onClick={() => setShowCreate(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold uppercase tracking-wider bg-amber-500 hover:bg-amber-600 text-slate-900 rounded-md transition-colors"
+          >
+            <Plus size={16} />
+            Create Your First Box
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {boxes.map((box) => (
+            <BoxCard key={box.id} box={box} />
+          ))}
+        </div>
+      )}
+
+      {/* Load more */}
+      {total > boxes.length && (
+        <div className="text-center mt-6">
+          <button
+            onClick={() => setPage(page + 1)}
+            className="px-6 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-navy-800 hover:bg-slate-200 dark:hover:bg-navy-700 rounded-md transition-colors"
+          >
+            Load More
+          </button>
+        </div>
+      )}
+
+      <CreateBoxModal
+        open={showCreate}
+        onClose={() => setShowCreate(false)}
+        onCreated={fetchBoxes}
+      />
+    </div>
+  );
+}

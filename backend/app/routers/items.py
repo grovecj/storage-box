@@ -1,0 +1,59 @@
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.database import get_db
+from app.schemas.item import (
+    ItemAddRequest,
+    ItemUpdateRequest,
+    BoxItemResponse,
+    BoxItemListResponse,
+)
+from app.services import item_service
+
+router = APIRouter(prefix="/boxes/{box_id}/items", tags=["items"])
+
+
+@router.get("", response_model=BoxItemListResponse)
+async def list_items(
+    box_id: int,
+    page: int = Query(1, ge=1),
+    page_size: int | None = Query(10, ge=1),
+    db: AsyncSession = Depends(get_db),
+):
+    # page_size=0 means ALL
+    if page_size == 0:
+        page_size = None
+    return await item_service.list_items(db, box_id, page, page_size)
+
+
+@router.post("", response_model=BoxItemResponse, status_code=201)
+async def add_item(
+    box_id: int, data: ItemAddRequest, db: AsyncSession = Depends(get_db)
+):
+    try:
+        return await item_service.add_item(db, box_id, data)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.put("/{item_id}", response_model=BoxItemResponse)
+async def update_item(
+    box_id: int,
+    item_id: int,
+    data: ItemUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    result = await item_service.update_item(db, box_id, item_id, data)
+    if not result:
+        raise HTTPException(status_code=404, detail="Item not found in this box")
+    return result
+
+
+@router.delete("/{item_id}")
+async def remove_item(
+    box_id: int, item_id: int, db: AsyncSession = Depends(get_db)
+):
+    success = await item_service.remove_item(db, box_id, item_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Item not found in this box")
+    return {"message": "Item removed"}
