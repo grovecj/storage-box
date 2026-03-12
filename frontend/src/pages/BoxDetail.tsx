@@ -8,13 +8,25 @@ import {
   Edit,
   Plus,
   Crosshair,
+  Map,
 } from "lucide-react";
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
 import Modal from "@/components/shared/Modal";
 import ItemTable from "@/components/items/ItemTable";
 import AddItemModal from "@/components/items/AddItemModal";
 import TransferModal from "@/components/items/TransferModal";
 import { getBox, getBoxByCode, updateBox, deleteBox, getAuditLog } from "@/api/client";
 import type { StorageBox, BoxItem, AuditLogEntry } from "@/types";
+
+// Fix default marker icon (Leaflet + bundlers issue)
+delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+});
 
 export default function BoxDetail() {
   const { id, code } = useParams();
@@ -30,6 +42,7 @@ export default function BoxDetail() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState("");
+  const [showMap, setShowMap] = useState(false);
 
   // Audit log
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
@@ -206,12 +219,16 @@ export default function BoxDetail() {
 
             <div className="flex flex-wrap items-center gap-4 mt-3 text-sm text-slate-500 dark:text-slate-400">
               {box.latitude != null && box.longitude != null ? (
-                <span className="flex items-center gap-1">
-                  <MapPin size={14} />
+                <button
+                  onClick={() => setShowMap(!showMap)}
+                  className="flex items-center gap-1 hover:text-amber-500 transition-colors cursor-pointer"
+                  title={showMap ? "Hide map" : "Show on map"}
+                >
+                  {showMap ? <Map size={14} /> : <MapPin size={14} />}
                   <span className="font-mono text-xs">
                     {box.latitude.toFixed(5)}, {box.longitude.toFixed(5)}
                   </span>
-                </span>
+                </button>
               ) : (
                 <span className="text-slate-400">No location set</span>
               )}
@@ -220,6 +237,28 @@ export default function BoxDetail() {
                 {new Date(box.created_at).toLocaleDateString()}
               </span>
             </div>
+
+            {/* Inline map */}
+            {showMap && box.latitude != null && box.longitude != null && (
+              <div className="mt-4 rounded-lg overflow-hidden border border-slate-200 dark:border-navy-700" style={{ height: 300 }}>
+                <MapContainer
+                  center={[box.latitude, box.longitude]}
+                  zoom={15}
+                  style={{ height: "100%", width: "100%" }}
+                  scrollWheelZoom={true}
+                >
+                  <TileLayer
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  />
+                  <Marker position={[box.latitude, box.longitude]}>
+                    <Popup>
+                      <strong>{box.box_code}</strong><br />{box.name}
+                    </Popup>
+                  </Marker>
+                </MapContainer>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
@@ -230,7 +269,7 @@ export default function BoxDetail() {
               title="Update location"
             >
               <Crosshair size={14} className={locationUpdating ? "animate-spin" : ""} />
-              {locationUpdating ? "Locating..." : "Location"}
+              {locationUpdating ? "Locating..." : "Set Location"}
             </button>
             <button
               onClick={() => navigate(`/boxes/${box.id}/qr`)}
