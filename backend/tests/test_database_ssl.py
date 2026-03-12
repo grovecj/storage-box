@@ -1,4 +1,5 @@
 import ssl as ssl_module
+import subprocess
 
 import pytest
 
@@ -7,7 +8,7 @@ import pytest
 def _production_env(monkeypatch):
     monkeypatch.setenv("APP_ENV", "production")
     monkeypatch.setenv("DATABASE_URL", "postgresql+asyncpg://u:p@host:5432/db")
-    monkeypatch.delenv("DB_CA_CERT_PATH", raising=False)
+    monkeypatch.delenv("DB_CA_CERT", raising=False)
 
 
 @pytest.fixture
@@ -37,6 +38,24 @@ def _reload_config_module():
     return app.config
 
 
+@pytest.fixture
+def _self_signed_cert_pem(tmp_path):
+    """Generate a self-signed cert and return its PEM content."""
+    cert_path = tmp_path / "ca-certificate.crt"
+    subprocess.run(
+        [
+            "openssl", "req", "-x509", "-newkey", "rsa:2048",
+            "-keyout", str(tmp_path / "key.pem"),
+            "-out", str(cert_path),
+            "-days", "1", "-nodes",
+            "-subj", "/CN=test",
+        ],
+        check=True,
+        capture_output=True,
+    )
+    return cert_path.read_text()
+
+
 @pytest.mark.usefixtures("_production_env")
 class TestProductionSSL:
     def test_ssl_context_is_set(self):
@@ -51,56 +70,32 @@ class TestProductionSSL:
         assert ssl_ctx.verify_mode == ssl_module.CERT_REQUIRED
         assert ssl_ctx.check_hostname is True
 
-    def test_custom_ca_cert_loaded(self, tmp_path, monkeypatch):
-        import subprocess
-
-        cert_path = tmp_path / "ca-certificate.crt"
-        subprocess.run(
-            [
-                "openssl", "req", "-x509", "-newkey", "rsa:2048",
-                "-keyout", str(tmp_path / "key.pem"),
-                "-out", str(cert_path),
-                "-days", "1", "-nodes",
-                "-subj", "/CN=test",
-            ],
-            check=True,
-            capture_output=True,
-        )
-
-        loaded_paths = []
+    def test_custom_ca_cert_loaded(self, monkeypatch, _self_signed_cert_pem):
+        loaded_cadata = []
         original = ssl_module.SSLContext.load_verify_locations
 
         def recording_load(self, *args, **kwargs):
-            loaded_paths.append(args[0] if args else kwargs.get("cafile"))
+            loaded_cadata.append(kwargs.get("cadata"))
             return original(self, *args, **kwargs)
 
         monkeypatch.setattr(ssl_module.SSLContext, "load_verify_locations", recording_load)
-        monkeypatch.setenv("DB_CA_CERT_PATH", str(cert_path))
+        monkeypatch.setenv("DB_CA_CERT", _self_signed_cert_pem)
         db = _reload_database_module()
         ssl_ctx = db.connect_args["ssl"]
         assert ssl_ctx.verify_mode == ssl_module.CERT_REQUIRED
-        assert str(cert_path) in loaded_paths
+        assert _self_signed_cert_pem in loaded_cadata
 
-    def test_empty_string_ca_cert_path_does_not_load(self, monkeypatch):
-        """Empty string for DB_CA_CERT_PATH should not attempt to load certificates."""
-        monkeypatch.setenv("DB_CA_CERT_PATH", "")
+    def test_empty_string_ca_cert_does_not_load(self, monkeypatch):
+        """Empty string for DB_CA_CERT should not attempt to load certificates."""
+        monkeypatch.setenv("DB_CA_CERT", "")
         db = _reload_database_module()
         ssl_ctx = db.connect_args["ssl"]
-        # Should still have a valid SSL context with default verification
         assert ssl_ctx.verify_mode == ssl_module.CERT_REQUIRED
         assert ssl_ctx.check_hostname is True
 
-    def test_invalid_cert_path_raises_error(self, monkeypatch):
-        """Non-existent certificate path should raise a RuntimeError."""
-        monkeypatch.setenv("DB_CA_CERT_PATH", "/nonexistent/path/to/cert.pem")
-        with pytest.raises(RuntimeError, match="CA certificate not found"):
-            _reload_database_module()
-
-    def test_invalid_cert_content_raises_error(self, tmp_path, monkeypatch):
-        """File with invalid certificate content should raise a RuntimeError."""
-        invalid_cert = tmp_path / "invalid.crt"
-        invalid_cert.write_text("This is not a valid certificate")
-        monkeypatch.setenv("DB_CA_CERT_PATH", str(invalid_cert))
+    def test_invalid_cert_content_raises_error(self, monkeypatch):
+        """Invalid certificate content should raise a RuntimeError."""
+        monkeypatch.setenv("DB_CA_CERT", "This is not a valid certificate")
         with pytest.raises(RuntimeError, match="Invalid database CA certificate"):
             _reload_database_module()
 
@@ -108,8 +103,6 @@ class TestProductionSSL:
         """Verify that a secure TLS protocol version is used."""
         db = _reload_database_module()
         ssl_ctx = db.connect_args["ssl"]
-        # create_default_context uses secure protocol by default (TLS 1.2+)
-        # Verify it's not SSLv2, SSLv3, or TLSv1.0
         assert ssl_ctx.protocol in (
             ssl_module.PROTOCOL_TLS,
             ssl_module.PROTOCOL_TLS_CLIENT,
@@ -119,15 +112,9 @@ class TestProductionSSL:
         """Verify SSL context does not have insecure options enabled."""
         db = _reload_database_module()
         ssl_ctx = db.connect_args["ssl"]
-        # create_default_context should have secure defaults
-        # Check that it disables old SSL versions
         options = ssl_ctx.options
-        # SSLv2 is not available in modern OpenSSL (OP_NO_SSLv2 = 0)
-        # SSLv3 should be disabled
         assert options & ssl_module.OP_NO_SSLv3
-        # Also verify minimum TLS version is set (if available)
         if hasattr(ssl_ctx, "minimum_version"):
-            # Should be at least TLS 1.2
             assert ssl_ctx.minimum_version >= ssl_module.TLSVersion.TLSv1_2
 
 
@@ -139,19 +126,18 @@ class TestDevelopmentSSL:
 
 
 class TestConfigDefaults:
-    def test_db_ca_cert_path_defaults_to_empty_string(self, monkeypatch):
-        """Verify db_ca_cert_path has a secure default (empty string)."""
-        # Clear any existing env var
-        monkeypatch.delenv("DB_CA_CERT_PATH", raising=False)
+    def test_db_ca_cert_defaults_to_empty_string(self, monkeypatch):
+        """Verify db_ca_cert has a secure default (empty string)."""
+        monkeypatch.delenv("DB_CA_CERT", raising=False)
         config = _reload_config_module()
-        assert config.settings.db_ca_cert_path == ""
+        assert config.settings.db_ca_cert == ""
 
-    def test_db_ca_cert_path_from_env(self, monkeypatch):
-        """Verify db_ca_cert_path can be set from environment variable."""
-        test_path = "/path/to/cert.pem"
-        monkeypatch.setenv("DB_CA_CERT_PATH", test_path)
+    def test_db_ca_cert_from_env(self, monkeypatch):
+        """Verify db_ca_cert can be set from environment variable."""
+        test_cert = "-----BEGIN CERTIFICATE-----\ntest\n-----END CERTIFICATE-----"
+        monkeypatch.setenv("DB_CA_CERT", test_cert)
         config = _reload_config_module()
-        assert config.settings.db_ca_cert_path == test_path
+        assert config.settings.db_ca_cert == test_cert
 
     def test_app_env_defaults_to_development(self, monkeypatch):
         """Verify app_env has a safe default."""
@@ -193,9 +179,6 @@ class TestSSLContextReuse:
         db2 = _reload_database_module()
         ssl_ctx2 = db2.connect_args["ssl"]
 
-        # They should be different instances but with same config
         assert ssl_ctx1 is not ssl_ctx2
         assert ssl_ctx1.verify_mode == ssl_ctx2.verify_mode
         assert ssl_ctx1.check_hostname == ssl_ctx2.check_hostname
-
-
