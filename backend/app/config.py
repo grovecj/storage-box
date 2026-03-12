@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     app_base_url: str = "http://localhost"
     app_env: str = "development"
     secret_key: str = "dev-secret-key"
+    db_ca_cert_path: str = ""
 
     model_config = {"env_file": ".env"}
 
