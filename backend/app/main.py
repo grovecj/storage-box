@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from app.config import settings
-from app.database import engine, Base
+from app.database import engine, async_session, Base
 from app.routers import boxes, items, transfers, search, tags, reports, audit, config
 
 logger = logging.getLogger("uvicorn.error")
@@ -34,6 +34,23 @@ async def lifespan(app: FastAPI):
             INSERT INTO tags (name) VALUES ('PCB'), ('VACATION'), ('LONG_TERM')
             ON CONFLICT (name) DO NOTHING
         """))
+
+        # Create and sync box_code_seq so new codes never reuse old ones
+        await conn.execute(text("CREATE SEQUENCE IF NOT EXISTS box_code_seq START 1"))
+        await conn.execute(text("""
+            SELECT setval('box_code_seq',
+                GREATEST(
+                    (SELECT COALESCE(MAX(CAST(SUBSTR(box_code, 5) AS INTEGER)), 0) FROM storage_boxes),
+                    (SELECT last_value FROM box_code_seq)
+                )
+            )
+        """))
+
+    # Seed sample data in development only
+    if settings.app_env == "development":
+        from app.seed import seed_if_empty
+        async with async_session() as db:
+            await seed_if_empty(db)
 
     yield
 

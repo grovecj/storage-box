@@ -17,16 +17,16 @@ export default function Dashboard() {
   const navTo = useNavigate();
   const geo = useGeolocation();
 
-  const fetchBoxes = async () => {
+  const fetchBoxes = async (append = false) => {
     setLoading(true);
     try {
       const params: Record<string, unknown> = { page, page_size: 20, sort };
-      if (sort === "proximity" && geo.latitude && geo.longitude) {
+      if (sort === "proximity" && geo.latitude != null && geo.longitude != null) {
         params.lat = geo.latitude;
         params.lng = geo.longitude;
       }
       const res = await listBoxes(params as Parameters<typeof listBoxes>[0]);
-      setBoxes(res.data.boxes);
+      setBoxes((prev) => append ? [...prev, ...res.data.boxes] : res.data.boxes);
       setTotal(res.data.total);
     } finally {
       setLoading(false);
@@ -34,17 +34,52 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    fetchBoxes();
+    fetchBoxes(page > 1);
   }, [page, sort, geo.latitude]);
 
-  const handleNearMe = () => {
-    if (sort === "proximity") {
-      setSort("recent");
+  const [pendingProximity, setPendingProximity] = useState(false);
+
+  const handleSortChange = (newSort: "recent" | "proximity") => {
+    if (newSort === "proximity") {
+      if (geo.latitude != null && geo.longitude != null) {
+        // Already have coordinates — switch immediately
+        if (sort !== "proximity") {
+          setPage(1);
+          setBoxes([]);
+        }
+        setSort("proximity");
+        setPendingProximity(false);
+      } else {
+        // Request location, wait for coordinates before switching
+        setPendingProximity(true);
+        geo.requestLocation();
+      }
     } else {
-      geo.requestLocation();
-      setSort("proximity");
+      setPendingProximity(false);
+      if (sort !== "recent") {
+        setPage(1);
+        setBoxes([]);
+      }
+      setSort("recent");
     }
   };
+
+  // Switch to proximity sort once coordinates arrive
+  useEffect(() => {
+    if (pendingProximity && geo.latitude != null && geo.longitude != null) {
+      setPage(1);
+      setBoxes([]);
+      setSort("proximity");
+      setPendingProximity(false);
+    }
+  }, [pendingProximity, geo.latitude, geo.longitude]);
+
+  // Reset pending state if geolocation fails
+  useEffect(() => {
+    if (pendingProximity && geo.error) {
+      setPendingProximity(false);
+    }
+  }, [pendingProximity, geo.error]);
 
   return (
     <div>
@@ -59,7 +94,7 @@ export default function Dashboard() {
         <div className="flex items-center gap-3">
           <div className="flex items-center bg-slate-100 dark:bg-navy-800 rounded-md overflow-hidden">
             <button
-              onClick={() => setSort("recent")}
+              onClick={() => handleSortChange("recent")}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs uppercase tracking-wider font-medium transition-colors ${
                 sort === "recent"
                   ? "bg-amber-500 text-slate-900"
@@ -70,15 +105,18 @@ export default function Dashboard() {
               Recent
             </button>
             <button
-              onClick={handleNearMe}
+              onClick={() => handleSortChange("proximity")}
+              disabled={pendingProximity}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs uppercase tracking-wider font-medium transition-colors ${
                 sort === "proximity"
                   ? "bg-amber-500 text-slate-900"
-                  : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                  : pendingProximity
+                    ? "bg-amber-200 dark:bg-amber-900/40 text-slate-500"
+                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
               }`}
             >
-              <MapPin size={14} />
-              Near Me
+              <MapPin size={14} className={pendingProximity ? "animate-pulse" : ""} />
+              {pendingProximity ? "Locating..." : "Near Me"}
             </button>
           </div>
           <button

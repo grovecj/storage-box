@@ -1,8 +1,8 @@
 from geoalchemy2.functions import ST_X, ST_Y, ST_Distance, ST_GeogFromText
-from sqlalchemy import select, func, cast
+from sqlalchemy import select, func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.box import StorageBox
+from app.models.box import StorageBox, box_code_seq
 from app.models.item import BoxItem
 from app.schemas.box import BoxCreate, BoxUpdate, BoxResponse, BoxListResponse
 from app.utils.audit import log_action
@@ -38,11 +38,9 @@ def _location_columns():
 
 
 async def get_next_box_code(db: AsyncSession) -> str:
-    result = await db.execute(
-        select(func.coalesce(func.max(StorageBox.id), 0))
-    )
-    max_id = result.scalar()
-    return f"BOX-{max_id + 1:04d}"
+    result = await db.execute(text(f"SELECT nextval('{box_code_seq.name}')"))
+    next_num = result.scalar()
+    return f"BOX-{next_num:04d}"
 
 
 async def create_box(db: AsyncSession, data: BoxCreate) -> BoxResponse:
