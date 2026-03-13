@@ -3,6 +3,16 @@ export interface Location {
   longitude: number;
 }
 
+export interface User {
+  id: number;
+  google_id: string;
+  email: string;
+  name: string;
+  picture_url: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface StorageBox {
   id: number;
   box_code: string;

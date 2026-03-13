@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Package, Search, Sun, Moon, Menu, X } from "lucide-react";
+import { Package, Search, Sun, Moon, Menu, X, LogOut } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface NavbarProps {
   theme: "light" | "dark";
@@ -11,6 +12,7 @@ export default function Navbar({ theme, setTheme }: NavbarProps) {
   const [query, setQuery] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
 
   const handleSearch = (e: FormEvent) => {
     e.preventDefault();
@@ -55,7 +57,7 @@ export default function Navbar({ theme, setTheme }: NavbarProps) {
             </div>
           </form>
 
-          {/* Right: Nav links + Theme */}
+          {/* Right: Nav links + User + Theme */}
           <div className="hidden sm:flex items-center gap-4">
             <Link
               to="/"
@@ -76,6 +78,33 @@ export default function Navbar({ theme, setTheme }: NavbarProps) {
             >
               {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
             </button>
+            {user && (
+              <div className="flex items-center gap-3 pl-4 border-l border-slate-600">
+                <div className="flex items-center gap-2">
+                  {user.picture_url ? (
+                    <img
+                      src={user.picture_url}
+                      alt={user.name}
+                      className="w-8 h-8 rounded-full"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center text-white font-medium text-sm">
+                      {user.name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <span className="text-sm text-slate-300 max-w-[120px] truncate">
+                    {user.name}
+                  </span>
+                </div>
+                <button
+                  onClick={logout}
+                  className="p-2 rounded-md text-slate-400 hover:text-amber-400 hover:bg-slate-700 dark:hover:bg-navy-800 transition-colors"
+                  title="Sign out"
+                >
+                  <LogOut size={18} />
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Mobile menu button */}
@@ -128,6 +157,31 @@ export default function Navbar({ theme, setTheme }: NavbarProps) {
               {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
               {theme === "dark" ? "Light mode" : "Dark mode"}
             </button>
+            {user && (
+              <>
+                <div className="flex items-center gap-2 py-2 border-t border-slate-600 mt-2 pt-4">
+                  {user.picture_url ? (
+                    <img
+                      src={user.picture_url}
+                      alt={user.name}
+                      className="w-8 h-8 rounded-full"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center text-white font-medium text-sm">
+                      {user.name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <span className="text-sm text-slate-300">{user.name}</span>
+                </div>
+                <button
+                  onClick={logout}
+                  className="flex items-center gap-2 text-sm text-slate-400 hover:text-amber-400 py-1"
+                >
+                  <LogOut size={16} />
+                  Sign out
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>
