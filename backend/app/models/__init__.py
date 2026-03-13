@@ -1,6 +1,7 @@
 from app.models.audit import AuditLog
 from app.models.box import StorageBox
+from app.models.group import BoxGroup
 from app.models.item import BoxItem, BoxItemTag, Item
 from app.models.tag import Tag
 
-__all__ = ["StorageBox", "Item", "BoxItem", "BoxItemTag", "Tag", "AuditLog"]
+__all__ = ["StorageBox", "Item", "BoxItem", "BoxItemTag", "Tag", "AuditLog", "BoxGroup"]

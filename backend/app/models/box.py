@@ -23,6 +23,10 @@ class StorageBox(Base):
         Integer, ForeignKey("users.id", ondelete="CASCADE"),
         nullable=True, index=True,
     )
+    group_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("box_groups.id", ondelete="SET NULL"),
+        nullable=True, index=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -37,4 +41,7 @@ class StorageBox(Base):
     )
     audit_logs: Mapped[list["AuditLog"]] = relationship(
         "AuditLog", back_populates="box"
+    )
+    group: Mapped["BoxGroup"] = relationship(
+        "BoxGroup", back_populates="boxes"
     )

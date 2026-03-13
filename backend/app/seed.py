@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.audit import AuditLog
 from app.models.box import StorageBox
+from app.models.group import BoxGroup
 from app.models.item import BoxItem, BoxItemTag, Item
 from app.models.tag import Tag
 from app.models.user import User
@@ -155,6 +156,25 @@ async def seed_if_empty(db: AsyncSession) -> None:
     tag_result = await db.execute(select(Tag))
     tags_by_name = {t.name: t for t in tag_result.scalars().all()}
 
+    # Create groups
+    groups_data = [
+        ("Garage", 35.2271, -80.8431),
+        ("Storage Unit #4", 35.1950, -80.8312),
+        ("Vacation House", 34.7254, -76.7260),
+        ("Workshop", 35.2271, -80.8433),
+    ]
+    groups = []
+    for group_name, lat, lng in groups_data:
+        location_wkt = f"SRID=4326;POINT({lng} {lat})"
+        group = BoxGroup(
+            name=group_name,
+            location=location_wkt,
+            owner_id=dev_user.id,
+        )
+        db.add(group)
+        await db.flush()
+        groups.append(group)
+
     # Create boxes
     random.seed(42)  # Deterministic for reproducibility
     boxes = []
@@ -164,12 +184,24 @@ async def seed_if_empty(db: AsyncSession) -> None:
         box_code = f"BOX-{i + 1:04d}"
         name = BOX_NAMES[i % len(BOX_NAMES)]
 
+        # Assign some boxes to groups based on location
+        group_id = None
+        if location_name and "Garage" in location_name:
+            group_id = groups[0].id  # Garage
+        elif location_name and "Storage Unit" in location_name:
+            group_id = groups[1].id  # Storage Unit #4
+        elif location_name and "Vacation House" in location_name:
+            group_id = groups[2].id  # Vacation House
+        elif location_name and "Workshop" in location_name:
+            group_id = groups[3].id  # Workshop
+
         location_wkt = f"SRID=4326;POINT({lng} {lat})" if lat and lng else None
         box = StorageBox(
             box_code=box_code,
             name=name,
             location=location_wkt,
             location_name=location_name,
+            group_id=group_id,
             owner_id=dev_user.id,
             created_by=dev_user.id,
             updated_by=dev_user.id,

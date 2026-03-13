@@ -26,10 +26,11 @@ async def list_boxes(
     sort: str = Query("recent", pattern="^(recent|proximity)$"),
     lat: float | None = Query(None),
     lng: float | None = Query(None),
+    group_id: int | None = Query(None),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    return await box_service.list_boxes(db, user, page, page_size, sort, lat, lng)
+    return await box_service.list_boxes(db, user, page, page_size, sort, lat, lng, group_id)
 
 
 @router.get("/{box_id}", response_model=BoxResponse)
