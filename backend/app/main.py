@@ -12,7 +12,7 @@ from sqlalchemy import text
 
 from app.config import settings
 from app.database import engine, async_session, Base
-from app.routers import boxes, items, transfers, search, tags, reports, audit, config
+from app.routers import boxes, items, transfers, search, tags, reports, audit, config, auth
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -71,6 +71,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router, prefix="/api/v1")
 app.include_router(boxes.router, prefix="/api/v1")
 app.include_router(items.router, prefix="/api/v1")
 app.include_router(transfers.router, prefix="/api/v1")
