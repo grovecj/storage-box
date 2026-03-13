@@ -19,4 +19,4 @@ async def transfer_item(
     try:
         return await transfer_service.transfer_item(db, data, user)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e

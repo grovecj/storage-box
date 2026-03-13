@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Edit, ArrowLeftRight, Trash2, Plus, X } from "lucide-react";
 import Pagination from "@/components/shared/Pagination";
 import Modal from "@/components/shared/Modal";
@@ -24,7 +24,7 @@ export default function ItemTable({ boxId, onTransfer, refreshKey }: ItemTablePr
   const [newTag, setNewTag] = useState("");
   const [deleteItem, setDeleteItem] = useState<BoxItem | null>(null);
 
-  const fetchItems = async () => {
+  const fetchItems = useCallback(async () => {
     setLoading(true);
     try {
       const res = await listItems(boxId, { page, page_size: pageSize });
@@ -33,11 +33,11 @@ export default function ItemTable({ boxId, onTransfer, refreshKey }: ItemTablePr
     } finally {
       setLoading(false);
     }
-  };
+  }, [boxId, page, pageSize]);
 
   useEffect(() => {
     fetchItems();
-  }, [boxId, page, pageSize, refreshKey]);
+  }, [fetchItems, refreshKey]);
 
   const handleEdit = (item: BoxItem) => {
     setEditingItem(item);

@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from geoalchemy2 import Geography
-from sqlalchemy import Integer, String, DateTime, ForeignKey, func, Sequence
+from sqlalchemy import DateTime, ForeignKey, Integer, Sequence, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base

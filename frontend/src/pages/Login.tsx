@@ -33,7 +33,7 @@ export default function Login() {
       const token = response.data.access_token;
       localStorage.setItem("auth_token", token);
       window.location.href = "/";
-    } catch (err) {
+    } catch {
       setError("Dev login failed. Please try again.");
       setLoading(false);
     }

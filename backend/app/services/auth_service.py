@@ -1,13 +1,15 @@
-from datetime import datetime, timedelta, timezone
-from typing import Dict, Any
+from datetime import UTC, datetime, timedelta
+from typing import Any
+
 from jose import JWTError, jwt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.config import settings
 from app.models.user import User
 
 
-async def get_or_create_user(db: AsyncSession, google_user_info: Dict[str, Any]) -> User:
+async def get_or_create_user(db: AsyncSession, google_user_info: dict[str, Any]) -> User:
     """Get existing user by google_id or create a new one."""
     google_id = google_user_info.get("sub") or google_user_info.get("id")
     email = google_user_info.get("email")
@@ -45,13 +47,14 @@ async def get_or_create_user(db: AsyncSession, google_user_info: Dict[str, Any])
 
 def create_access_token(user_id: int) -> str:
     """Create a JWT access token for the user."""
-    expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_expiration_minutes)
+    expires_at = datetime.now(UTC) + timedelta(minutes=settings.jwt_expiration_minutes)
     payload = {
         "sub": str(user_id),
         "exp": expires_at,
-        "iat": datetime.now(timezone.utc),
+        "iat": datetime.now(UTC),
     }
-    return jwt.encode(payload, settings.secret_key, algorithm=settings.jwt_algorithm)
+    token: str = jwt.encode(payload, settings.secret_key, algorithm=settings.jwt_algorithm)
+    return token
 
 
 async def get_current_user(db: AsyncSession, token: str) -> User | None:

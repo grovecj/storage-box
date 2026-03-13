@@ -1,16 +1,16 @@
-from sqlalchemy import select, func
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.box import StorageBox
-from app.models.item import Item, BoxItem, BoxItemTag
+from app.models.item import BoxItem, BoxItemTag, Item
 from app.models.tag import Tag
 from app.models.user import User
 from app.schemas.item import (
+    BoxItemListResponse,
+    BoxItemResponse,
     ItemAddRequest,
     ItemUpdateRequest,
-    BoxItemResponse,
-    BoxItemListResponse,
 )
 from app.utils.audit import log_action
 
@@ -87,9 +87,9 @@ async def list_items(
 
     return BoxItemListResponse(
         items=[_box_item_to_response(bi) for bi in box_items],
-        total=total,
+        total=total or 0,
         page=page,
-        page_size=page_size or total,
+        page_size=page_size or total or 0,
     )
 
 
@@ -101,7 +101,7 @@ async def add_item(db: AsyncSession, box_id: int, data: ItemAddRequest, user: Us
     count_result = await db.execute(
         select(func.count(BoxItem.id)).where(BoxItem.box_id == box_id)
     )
-    current_count = count_result.scalar()
+    current_count = count_result.scalar() or 0
     if current_count >= MAX_ITEMS_PER_BOX:
         raise ValueError(f"Box has reached the maximum limit of {MAX_ITEMS_PER_BOX} items")
 
@@ -131,7 +131,7 @@ async def add_item(db: AsyncSession, box_id: int, data: ItemAddRequest, user: Us
 
     # Handle tags
     await db.execute(
-        BoxItemTag.__table__.delete().where(BoxItemTag.box_item_id == box_item.id)
+        delete(BoxItemTag).where(BoxItemTag.box_item_id == box_item.id)
     )
     for tag_name in data.tags:
         tag = await _get_or_create_tag(db, tag_name, user)
@@ -179,7 +179,7 @@ async def update_item(
 
     if data.tags is not None:
         await db.execute(
-            BoxItemTag.__table__.delete().where(BoxItemTag.box_item_id == box_item.id)
+            delete(BoxItemTag).where(BoxItemTag.box_item_id == box_item.id)
         )
         for tag_name in data.tags:
             tag = await _get_or_create_tag(db, tag_name, user)

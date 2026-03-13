@@ -1,5 +1,4 @@
 import logging
-import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 from urllib.parse import urlparse
@@ -11,8 +10,8 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from app.config import settings
-from app.database import engine, async_session, Base
-from app.routers import boxes, items, transfers, search, tags, reports, audit, config, auth
+from app.database import Base, async_session, engine
+from app.routers import audit, auth, boxes, config, items, reports, search, tags, transfers
 
 logger = logging.getLogger("uvicorn.error")
 

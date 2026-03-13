@@ -1,11 +1,11 @@
 from geoalchemy2.functions import ST_X, ST_Y, ST_Distance, ST_GeogFromText
-from sqlalchemy import select, func, text
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.box import StorageBox, box_code_seq
 from app.models.item import BoxItem
 from app.models.user import User
-from app.schemas.box import BoxCreate, BoxUpdate, BoxResponse, BoxListResponse
+from app.schemas.box import BoxCreate, BoxListResponse, BoxResponse, BoxUpdate
 from app.utils.audit import log_action
 
 
@@ -155,7 +155,7 @@ async def list_boxes(
         box, item_count, box_lat, box_lng = row
         boxes.append(_box_to_response(box, item_count=item_count, lat=box_lat, lng=box_lng))
 
-    return BoxListResponse(boxes=boxes, total=total, page=page, page_size=page_size)
+    return BoxListResponse(boxes=boxes, total=total or 0, page=page, page_size=page_size)
 
 
 async def update_box(db: AsyncSession, box_id: int, data: BoxUpdate, user: User) -> BoxResponse | None:

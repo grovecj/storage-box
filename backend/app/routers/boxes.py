@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
-from app.schemas.box import BoxCreate, BoxUpdate, BoxResponse, BoxListResponse
+from app.schemas.box import BoxCreate, BoxListResponse, BoxResponse, BoxUpdate
 from app.services import box_service
 
 router = APIRouter(prefix="/boxes", tags=["boxes"])
