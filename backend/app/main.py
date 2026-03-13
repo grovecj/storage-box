@@ -20,7 +20,10 @@ logger = logging.getLogger("uvicorn.error")
 async def lifespan(app: FastAPI):
     # Log connection target (not password) for debugging
     parsed = urlparse(settings.database_url)
-    logger.info(f"DB connect: host={parsed.hostname} port={parsed.port} db={parsed.path} user={parsed.username} env={settings.app_env}")
+    logger.info(
+        f"DB connect: host={parsed.hostname} port={parsed.port}"
+        f" db={parsed.path} user={parsed.username} env={settings.app_env}"
+    )
 
     # Create extensions and tables on startup
     async with engine.begin() as conn:
@@ -39,7 +42,8 @@ async def lifespan(app: FastAPI):
         await conn.execute(text("""
             SELECT setval('box_code_seq',
                 GREATEST(
-                    (SELECT COALESCE(MAX(CAST(SUBSTR(box_code, 5) AS INTEGER)), 0) FROM storage_boxes),
+                    (SELECT COALESCE(MAX(CAST(SUBSTR(box_code, 5) AS INTEGER)), 0)
+                     FROM storage_boxes),
                     (SELECT last_value FROM box_code_seq)
                 )
             )

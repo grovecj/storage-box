@@ -212,7 +212,10 @@ async def generate_csv_report(db: AsyncSession, request: ReportRequest, user: Us
     data = await _fetch_report_data(db, request, user)
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["Box Code", "Box Name", "Location", "Latitude", "Longitude", "Item", "Quantity", "Tags"])
+    writer.writerow([
+        "Box Code", "Box Name", "Location", "Latitude",
+        "Longitude", "Item", "Quantity", "Tags",
+    ])
 
     for box in data:
         if box["items"]:

@@ -143,7 +143,11 @@ async def seed_if_empty(db: AsyncSession) -> None:
                      "TOOLS", "CABLES", "HOME_MAINTENANCE"]
     for tag_name in all_tag_names:
         await db.execute(
-            text("INSERT INTO tags (name, created_by, updated_by) VALUES (:name, :user_id, :user_id) ON CONFLICT (name) DO NOTHING"),
+            text(
+                "INSERT INTO tags (name, created_by, updated_by)"
+                " VALUES (:name, :user_id, :user_id)"
+                " ON CONFLICT (name) DO NOTHING"
+            ),
             {"name": tag_name, "user_id": dev_user.id},
         )
     await db.flush()

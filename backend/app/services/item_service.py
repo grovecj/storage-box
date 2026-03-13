@@ -17,6 +17,14 @@ from app.utils.audit import log_action
 MAX_ITEMS_PER_BOX = 500
 
 
+def _box_item_load_options():
+    """Standard eager-load options for BoxItem queries."""
+    return (
+        selectinload(BoxItem.item),
+        selectinload(BoxItem.tags).selectinload(BoxItemTag.tag),
+    )
+
+
 async def _verify_box_owner(db: AsyncSession, box_id: int, user: User) -> bool:
     """Verify that the box belongs to the user."""
     result = await db.execute(
@@ -75,7 +83,7 @@ async def list_items(
     query = (
         select(BoxItem)
         .where(BoxItem.box_id == box_id)
-        .options(selectinload(BoxItem.item), selectinload(BoxItem.tags).selectinload(BoxItemTag.tag))
+        .options(*_box_item_load_options())
         .order_by(BoxItem.created_at.desc())
     )
 
@@ -93,7 +101,9 @@ async def list_items(
     )
 
 
-async def add_item(db: AsyncSession, box_id: int, data: ItemAddRequest, user: User) -> BoxItemResponse:
+async def add_item(
+    db: AsyncSession, box_id: int, data: ItemAddRequest, user: User,
+) -> BoxItemResponse:
     if not await _verify_box_owner(db, box_id, user):
         raise ValueError("Box not found or access denied")
 
@@ -111,7 +121,7 @@ async def add_item(db: AsyncSession, box_id: int, data: ItemAddRequest, user: Us
     existing = await db.execute(
         select(BoxItem)
         .where(BoxItem.box_id == box_id, BoxItem.item_id == item.id)
-        .options(selectinload(BoxItem.item), selectinload(BoxItem.tags).selectinload(BoxItemTag.tag))
+        .options(*_box_item_load_options())
     )
     box_item = existing.scalar_one_or_none()
 
@@ -151,7 +161,7 @@ async def add_item(db: AsyncSession, box_id: int, data: ItemAddRequest, user: Us
     result = await db.execute(
         select(BoxItem)
         .where(BoxItem.id == box_item.id)
-        .options(selectinload(BoxItem.item), selectinload(BoxItem.tags).selectinload(BoxItemTag.tag))
+        .options(*_box_item_load_options())
     )
     box_item = result.scalar_one()
     return _box_item_to_response(box_item)
@@ -166,7 +176,7 @@ async def update_item(
     result = await db.execute(
         select(BoxItem)
         .where(BoxItem.box_id == box_id, BoxItem.item_id == item_id)
-        .options(selectinload(BoxItem.item), selectinload(BoxItem.tags).selectinload(BoxItemTag.tag))
+        .options(*_box_item_load_options())
     )
     box_item = result.scalar_one_or_none()
     if not box_item:
@@ -196,7 +206,7 @@ async def update_item(
     result = await db.execute(
         select(BoxItem)
         .where(BoxItem.id == box_item.id)
-        .options(selectinload(BoxItem.item), selectinload(BoxItem.tags).selectinload(BoxItemTag.tag))
+        .options(*_box_item_load_options())
     )
     box_item = result.scalar_one()
     return _box_item_to_response(box_item)
@@ -226,7 +236,9 @@ async def remove_item(db: AsyncSession, box_id: int, item_id: int, user: User) -
     return True
 
 
-async def autocomplete_items(db: AsyncSession, query: str, user: User, limit: int = 10) -> list[dict]:
+async def autocomplete_items(
+    db: AsyncSession, query: str, user: User, limit: int = 10,
+) -> list[dict]:
     result = await db.execute(
         select(Item)
         .join(BoxItem, BoxItem.item_id == Item.id)

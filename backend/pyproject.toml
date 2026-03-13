@@ -19,7 +19,6 @@ select = [
     "SIM", # flake8-simplify
 ]
 ignore = [
-    "E501",  # line too long (handled by formatter)
     "B008",  # function call in argument defaults (FastAPI Depends pattern)
     "F821",  # undefined name (SQLAlchemy forward references in Mapped types)
 ]
