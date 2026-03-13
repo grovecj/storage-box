@@ -1,17 +1,20 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, MapPin, Clock, Printer } from "lucide-react";
+import { Plus, MapPin, Clock, Printer, Map, LayoutGrid } from "lucide-react";
 import BoxCard from "@/components/boxes/BoxCard";
 import CreateBoxModal from "@/components/boxes/CreateBoxModal";
+import BoxMapView from "@/components/boxes/BoxMapView";
 import { listBoxes } from "@/api/client";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import type { StorageBox } from "@/types";
 
 export default function Dashboard() {
   const [boxes, setBoxes] = useState<StorageBox[]>([]);
+  const [allBoxes, setAllBoxes] = useState<StorageBox[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState<"recent" | "proximity">("recent");
+  const [view, setView] = useState<"grid" | "map">("grid");
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const navTo = useNavigate();
@@ -33,11 +36,31 @@ export default function Dashboard() {
     }
   }, [page, sort, geo.latitude, geo.longitude]);
 
+  const fetchAllBoxes = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params: Record<string, unknown> = { page_size: 0 };
+      const res = await listBoxes(params as Parameters<typeof listBoxes>[0]);
+      setAllBoxes(res.data.boxes);
+      setTotal(res.data.total);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
-    fetchBoxes(page > 1);
-  }, [fetchBoxes, page]);
+    if (view === "grid") {
+      fetchBoxes(page > 1);
+    } else {
+      fetchAllBoxes();
+    }
+  }, [view, fetchBoxes, fetchAllBoxes, page]);
 
   const [pendingProximity, setPendingProximity] = useState(false);
+
+  const handleViewChange = (newView: "grid" | "map") => {
+    setView(newView);
+  };
 
   const handleSortChange = (newSort: "recent" | "proximity") => {
     if (newSort === "proximity") {
@@ -94,31 +117,57 @@ export default function Dashboard() {
         <div className="flex items-center gap-3">
           <div className="flex items-center bg-slate-100 dark:bg-navy-800 rounded-md overflow-hidden">
             <button
-              onClick={() => handleSortChange("recent")}
+              onClick={() => handleViewChange("grid")}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs uppercase tracking-wider font-medium transition-colors ${
-                sort === "recent"
+                view === "grid"
                   ? "bg-amber-500 text-slate-900"
                   : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
               }`}
             >
-              <Clock size={14} />
-              Recent
+              <LayoutGrid size={14} />
+              Grid
             </button>
             <button
-              onClick={() => handleSortChange("proximity")}
-              disabled={pendingProximity}
+              onClick={() => handleViewChange("map")}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs uppercase tracking-wider font-medium transition-colors ${
-                sort === "proximity"
+                view === "map"
                   ? "bg-amber-500 text-slate-900"
-                  : pendingProximity
-                    ? "bg-amber-200 dark:bg-amber-900/40 text-slate-500"
-                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                  : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
               }`}
             >
-              <MapPin size={14} className={pendingProximity ? "animate-pulse" : ""} />
-              {pendingProximity ? "Locating..." : "Near Me"}
+              <Map size={14} />
+              Map
             </button>
           </div>
+          {view === "grid" && (
+            <div className="flex items-center bg-slate-100 dark:bg-navy-800 rounded-md overflow-hidden">
+              <button
+                onClick={() => handleSortChange("recent")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs uppercase tracking-wider font-medium transition-colors ${
+                  sort === "recent"
+                    ? "bg-amber-500 text-slate-900"
+                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                }`}
+              >
+                <Clock size={14} />
+                Recent
+              </button>
+              <button
+                onClick={() => handleSortChange("proximity")}
+                disabled={pendingProximity}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs uppercase tracking-wider font-medium transition-colors ${
+                  sort === "proximity"
+                    ? "bg-amber-500 text-slate-900"
+                    : pendingProximity
+                      ? "bg-amber-200 dark:bg-amber-900/40 text-slate-500"
+                      : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                }`}
+              >
+                <MapPin size={14} className={pendingProximity ? "animate-pulse" : ""} />
+                {pendingProximity ? "Locating..." : "Near Me"}
+              </button>
+            </div>
+          )}
           <button
             onClick={() => navTo("/qr-batch")}
             className="flex items-center gap-2 px-3 py-2 text-xs font-medium uppercase tracking-wider bg-slate-100 dark:bg-navy-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-navy-700 rounded-md transition-colors"
@@ -136,12 +185,12 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Box Grid */}
+      {/* Content: Grid or Map View */}
       {loading ? (
         <div className="text-center py-16 text-slate-400 dark:text-slate-500">
           Loading boxes...
         </div>
-      ) : boxes.length === 0 ? (
+      ) : (view === "grid" ? boxes.length : allBoxes.length) === 0 ? (
         <div className="text-center py-16">
           <p className="text-slate-400 dark:text-slate-500 mb-4">
             No storage boxes yet
@@ -154,16 +203,18 @@ export default function Dashboard() {
             Create Your First Box
           </button>
         </div>
-      ) : (
+      ) : view === "grid" ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {boxes.map((box) => (
             <BoxCard key={box.id} box={box} />
           ))}
         </div>
+      ) : (
+        <BoxMapView boxes={allBoxes} />
       )}
 
-      {/* Load more */}
-      {total > boxes.length && (
+      {/* Load more (only in grid view) */}
+      {view === "grid" && total > boxes.length && (
         <div className="text-center mt-6">
           <button
             onClick={() => setPage(page + 1)}
