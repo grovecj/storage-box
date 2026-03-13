@@ -1,13 +1,15 @@
+import secrets
+
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.config import settings
 from app.database import get_db
-from app.schemas.user import UserResponse, TokenResponse
-from app.services import auth_service
 from app.dependencies import get_current_user
-import httpx
-import secrets
+from app.schemas.user import TokenResponse, UserResponse
+from app.services import auth_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 

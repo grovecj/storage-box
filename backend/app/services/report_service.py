@@ -3,16 +3,14 @@ import io
 from datetime import datetime
 
 from jinja2 import Template
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.box import StorageBox
 from app.models.item import BoxItem, BoxItemTag
-from app.models.tag import Tag
 from app.models.user import User
 from app.schemas.report import ReportRequest
-
 
 REPORT_HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -120,9 +118,8 @@ async def _fetch_report_data(
         for bi in box.box_items:
             tags = [bit.tag.name for bit in bi.tags]
             # Filter by tag if specified
-            if request.tag_filter:
-                if not any(t in request.tag_filter for t in tags):
-                    continue
+            if request.tag_filter and not any(t in request.tag_filter for t in tags):
+                continue
             items.append({
                 "name": bi.item.name,
                 "quantity": bi.quantity,
@@ -156,7 +153,8 @@ async def generate_html_report(db: AsyncSession, request: ReportRequest, user: U
 async def generate_pdf_report(db: AsyncSession, request: ReportRequest, user: User) -> bytes:
     html = await generate_html_report(db, request, user)
     from weasyprint import HTML
-    return HTML(string=html).write_pdf()
+    pdf_bytes: bytes = HTML(string=html).write_pdf()
+    return pdf_bytes
 
 
 async def generate_text_report(db: AsyncSession, request: ReportRequest, user: User) -> str:
@@ -214,7 +212,10 @@ async def generate_csv_report(db: AsyncSession, request: ReportRequest, user: Us
     data = await _fetch_report_data(db, request, user)
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["Box Code", "Box Name", "Location", "Latitude", "Longitude", "Item", "Quantity", "Tags"])
+    writer.writerow([
+        "Box Code", "Box Name", "Location", "Latitude",
+        "Longitude", "Item", "Quantity", "Tags",
+    ])
 
     for box in data:
         if box["items"]:

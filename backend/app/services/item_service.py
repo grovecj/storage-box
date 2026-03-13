@@ -1,20 +1,28 @@
-from sqlalchemy import select, func
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.box import StorageBox
-from app.models.item import Item, BoxItem, BoxItemTag
+from app.models.item import BoxItem, BoxItemTag, Item
 from app.models.tag import Tag
 from app.models.user import User
 from app.schemas.item import (
+    BoxItemListResponse,
+    BoxItemResponse,
     ItemAddRequest,
     ItemUpdateRequest,
-    BoxItemResponse,
-    BoxItemListResponse,
 )
 from app.utils.audit import log_action
 
 MAX_ITEMS_PER_BOX = 500
+
+
+def _box_item_load_options():
+    """Standard eager-load options for BoxItem queries."""
+    return (
+        selectinload(BoxItem.item),
+        selectinload(BoxItem.tags).selectinload(BoxItemTag.tag),
+    )
 
 
 async def _verify_box_owner(db: AsyncSession, box_id: int, user: User) -> bool:
@@ -75,7 +83,7 @@ async def list_items(
     query = (
         select(BoxItem)
         .where(BoxItem.box_id == box_id)
-        .options(selectinload(BoxItem.item), selectinload(BoxItem.tags).selectinload(BoxItemTag.tag))
+        .options(*_box_item_load_options())
         .order_by(BoxItem.created_at.desc())
     )
 
@@ -87,13 +95,15 @@ async def list_items(
 
     return BoxItemListResponse(
         items=[_box_item_to_response(bi) for bi in box_items],
-        total=total,
+        total=total or 0,
         page=page,
-        page_size=page_size or total,
+        page_size=page_size or total or 0,
     )
 
 
-async def add_item(db: AsyncSession, box_id: int, data: ItemAddRequest, user: User) -> BoxItemResponse:
+async def add_item(
+    db: AsyncSession, box_id: int, data: ItemAddRequest, user: User,
+) -> BoxItemResponse:
     if not await _verify_box_owner(db, box_id, user):
         raise ValueError("Box not found or access denied")
 
@@ -101,7 +111,7 @@ async def add_item(db: AsyncSession, box_id: int, data: ItemAddRequest, user: Us
     count_result = await db.execute(
         select(func.count(BoxItem.id)).where(BoxItem.box_id == box_id)
     )
-    current_count = count_result.scalar()
+    current_count = count_result.scalar() or 0
     if current_count >= MAX_ITEMS_PER_BOX:
         raise ValueError(f"Box has reached the maximum limit of {MAX_ITEMS_PER_BOX} items")
 
@@ -111,7 +121,7 @@ async def add_item(db: AsyncSession, box_id: int, data: ItemAddRequest, user: Us
     existing = await db.execute(
         select(BoxItem)
         .where(BoxItem.box_id == box_id, BoxItem.item_id == item.id)
-        .options(selectinload(BoxItem.item), selectinload(BoxItem.tags).selectinload(BoxItemTag.tag))
+        .options(*_box_item_load_options())
     )
     box_item = existing.scalar_one_or_none()
 
@@ -131,7 +141,7 @@ async def add_item(db: AsyncSession, box_id: int, data: ItemAddRequest, user: Us
 
     # Handle tags
     await db.execute(
-        BoxItemTag.__table__.delete().where(BoxItemTag.box_item_id == box_item.id)
+        delete(BoxItemTag).where(BoxItemTag.box_item_id == box_item.id)
     )
     for tag_name in data.tags:
         tag = await _get_or_create_tag(db, tag_name, user)
@@ -151,7 +161,7 @@ async def add_item(db: AsyncSession, box_id: int, data: ItemAddRequest, user: Us
     result = await db.execute(
         select(BoxItem)
         .where(BoxItem.id == box_item.id)
-        .options(selectinload(BoxItem.item), selectinload(BoxItem.tags).selectinload(BoxItemTag.tag))
+        .options(*_box_item_load_options())
     )
     box_item = result.scalar_one()
     return _box_item_to_response(box_item)
@@ -166,7 +176,7 @@ async def update_item(
     result = await db.execute(
         select(BoxItem)
         .where(BoxItem.box_id == box_id, BoxItem.item_id == item_id)
-        .options(selectinload(BoxItem.item), selectinload(BoxItem.tags).selectinload(BoxItemTag.tag))
+        .options(*_box_item_load_options())
     )
     box_item = result.scalar_one_or_none()
     if not box_item:
@@ -179,7 +189,7 @@ async def update_item(
 
     if data.tags is not None:
         await db.execute(
-            BoxItemTag.__table__.delete().where(BoxItemTag.box_item_id == box_item.id)
+            delete(BoxItemTag).where(BoxItemTag.box_item_id == box_item.id)
         )
         for tag_name in data.tags:
             tag = await _get_or_create_tag(db, tag_name, user)
@@ -196,7 +206,7 @@ async def update_item(
     result = await db.execute(
         select(BoxItem)
         .where(BoxItem.id == box_item.id)
-        .options(selectinload(BoxItem.item), selectinload(BoxItem.tags).selectinload(BoxItemTag.tag))
+        .options(*_box_item_load_options())
     )
     box_item = result.scalar_one()
     return _box_item_to_response(box_item)
@@ -226,7 +236,9 @@ async def remove_item(db: AsyncSession, box_id: int, item_id: int, user: User) -
     return True
 
 
-async def autocomplete_items(db: AsyncSession, query: str, user: User, limit: int = 10) -> list[dict]:
+async def autocomplete_items(
+    db: AsyncSession, query: str, user: User, limit: int = 10,
+) -> list[dict]:
     result = await db.execute(
         select(Item)
         .join(BoxItem, BoxItem.item_id == Item.id)

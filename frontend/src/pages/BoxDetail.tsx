@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ChevronLeft,
@@ -50,7 +50,7 @@ export default function BoxDetail() {
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [auditLoading, setAuditLoading] = useState(false);
 
-  const fetchBox = async () => {
+  const fetchBox = useCallback(async () => {
     setLoading(true);
     try {
       const res = code
@@ -62,9 +62,9 @@ export default function BoxDetail() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, code]);
 
-  const fetchAuditLog = async () => {
+  const fetchAuditLog = useCallback(async () => {
     if (!box) return;
     setAuditLoading(true);
     try {
@@ -73,15 +73,15 @@ export default function BoxDetail() {
     } finally {
       setAuditLoading(false);
     }
-  };
+  }, [box]);
 
   useEffect(() => {
     fetchBox();
-  }, [id, code]);
+  }, [fetchBox]);
 
   useEffect(() => {
     if (activeTab === "audit" && box) fetchAuditLog();
-  }, [activeTab, box?.id, refreshKey]);
+  }, [activeTab, box, fetchAuditLog, refreshKey]);
 
   const handleSaveName = async () => {
     if (!box || !nameInput.trim()) return;

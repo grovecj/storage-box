@@ -1,11 +1,11 @@
 from geoalchemy2.functions import ST_X, ST_Y, ST_Distance, ST_GeogFromText
-from sqlalchemy import select, func, text
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.box import StorageBox, box_code_seq
 from app.models.item import BoxItem
 from app.models.user import User
-from app.schemas.box import BoxCreate, BoxUpdate, BoxResponse, BoxListResponse
+from app.schemas.box import BoxCreate, BoxListResponse, BoxResponse, BoxUpdate
 from app.utils.audit import log_action
 
 
@@ -13,7 +13,12 @@ def _make_point(lat: float, lng: float) -> str:
     return f"SRID=4326;POINT({lng} {lat})"
 
 
-def _box_to_response(box: StorageBox, item_count: int = 0, lat: float | None = None, lng: float | None = None) -> BoxResponse:
+def _box_to_response(
+    box: StorageBox,
+    item_count: int = 0,
+    lat: float | None = None,
+    lng: float | None = None,
+) -> BoxResponse:
     return BoxResponse(
         id=box.id,
         box_code=box.box_code,
@@ -66,7 +71,9 @@ async def create_box(db: AsyncSession, data: BoxCreate, user: User) -> BoxRespon
     await db.flush()
     await db.refresh(box)
 
-    await log_action(db, box.id, "BOX_CREATED", {"box_code": box_code, "name": data.name, "user_id": user.id})
+    await log_action(db, box.id, "BOX_CREATED", {
+        "box_code": box_code, "name": data.name, "user_id": user.id,
+    })
     await db.commit()
 
     return _box_to_response(box, item_count=0, lat=lat, lng=lng)
@@ -155,10 +162,12 @@ async def list_boxes(
         box, item_count, box_lat, box_lng = row
         boxes.append(_box_to_response(box, item_count=item_count, lat=box_lat, lng=box_lng))
 
-    return BoxListResponse(boxes=boxes, total=total, page=page, page_size=page_size)
+    return BoxListResponse(boxes=boxes, total=total or 0, page=page, page_size=page_size)
 
 
-async def update_box(db: AsyncSession, box_id: int, data: BoxUpdate, user: User) -> BoxResponse | None:
+async def update_box(
+    db: AsyncSession, box_id: int, data: BoxUpdate, user: User,
+) -> BoxResponse | None:
     result = await db.execute(
         select(StorageBox)
         .where(StorageBox.id == box_id)
@@ -179,7 +188,10 @@ async def update_box(db: AsyncSession, box_id: int, data: BoxUpdate, user: User)
 
     await db.flush()
     await db.refresh(box)
-    await log_action(db, box.id, "BOX_UPDATED", {"changes": data.model_dump(exclude_none=True), "user_id": user.id})
+    await log_action(db, box.id, "BOX_UPDATED", {
+        "changes": data.model_dump(exclude_none=True),
+        "user_id": user.id,
+    })
     await db.commit()
 
     return await get_box(db, box_id, user)

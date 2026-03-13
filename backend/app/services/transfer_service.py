@@ -33,7 +33,10 @@ async def transfer_item(db: AsyncSession, data: TransferRequest, user: User) -> 
     source_result = await db.execute(
         select(BoxItem)
         .where(BoxItem.box_id == data.from_box_id, BoxItem.item_id == data.item_id)
-        .options(selectinload(BoxItem.item), selectinload(BoxItem.tags).selectinload(BoxItemTag.tag))
+        .options(
+            selectinload(BoxItem.item),
+            selectinload(BoxItem.tags).selectinload(BoxItemTag.tag),
+        )
     )
     source_bi = source_result.scalar_one_or_none()
     if not source_bi:

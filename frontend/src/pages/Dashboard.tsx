@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, MapPin, Clock, Printer } from "lucide-react";
 import BoxCard from "@/components/boxes/BoxCard";
@@ -17,7 +17,7 @@ export default function Dashboard() {
   const navTo = useNavigate();
   const geo = useGeolocation();
 
-  const fetchBoxes = async (append = false) => {
+  const fetchBoxes = useCallback(async (append = false) => {
     setLoading(true);
     try {
       const params: Record<string, unknown> = { page, page_size: 20, sort };
@@ -31,11 +31,11 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, sort, geo.latitude, geo.longitude]);
 
   useEffect(() => {
     fetchBoxes(page > 1);
-  }, [page, sort, geo.latitude]);
+  }, [fetchBoxes, page]);
 
   const [pendingProximity, setPendingProximity] = useState(false);
 

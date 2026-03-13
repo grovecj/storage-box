@@ -1,9 +1,9 @@
-from sqlalchemy import select, func, or_
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.box import StorageBox
-from app.models.item import Item, BoxItem, BoxItemTag
+from app.models.item import BoxItem, BoxItemTag, Item
 from app.models.tag import Tag
 from app.models.user import User
 

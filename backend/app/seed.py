@@ -4,13 +4,13 @@ Seed data for local development. Runs once on first startup when the database is
 
 import random
 
-from sqlalchemy import select, func, text
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.box import StorageBox
-from app.models.item import Item, BoxItem, BoxItemTag
-from app.models.tag import Tag
 from app.models.audit import AuditLog
+from app.models.box import StorageBox
+from app.models.item import BoxItem, BoxItemTag, Item
+from app.models.tag import Tag
 from app.models.user import User
 
 # Realistic locations with GPS coordinates
@@ -121,7 +121,8 @@ def _get_tags_for_item(item_name: str) -> list[str]:
 async def seed_if_empty(db: AsyncSession) -> None:
     """Seed the database with sample data if no boxes exist. Idempotent."""
     result = await db.execute(select(func.count(StorageBox.id)))
-    if result.scalar() > 0:
+    count = result.scalar()
+    if count and count > 0:
         return
 
     # Create or get dev user
@@ -142,7 +143,11 @@ async def seed_if_empty(db: AsyncSession) -> None:
                      "TOOLS", "CABLES", "HOME_MAINTENANCE"]
     for tag_name in all_tag_names:
         await db.execute(
-            text("INSERT INTO tags (name, created_by, updated_by) VALUES (:name, :user_id, :user_id) ON CONFLICT (name) DO NOTHING"),
+            text(
+                "INSERT INTO tags (name, created_by, updated_by)"
+                " VALUES (:name, :user_id, :user_id)"
+                " ON CONFLICT (name) DO NOTHING"
+            ),
             {"name": tag_name, "user_id": dev_user.id},
         )
     await db.flush()

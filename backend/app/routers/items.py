@@ -5,10 +5,10 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
 from app.schemas.item import (
+    BoxItemListResponse,
+    BoxItemResponse,
     ItemAddRequest,
     ItemUpdateRequest,
-    BoxItemResponse,
-    BoxItemListResponse,
 )
 from app.services import item_service
 
@@ -42,7 +42,7 @@ async def add_item(
     try:
         return await item_service.add_item(db, box_id, data, user)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.put("/{item_id}", response_model=BoxItemResponse)

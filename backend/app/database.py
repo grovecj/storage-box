@@ -1,4 +1,5 @@
 import ssl as ssl_module
+from collections.abc import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
@@ -15,7 +16,7 @@ if settings.app_env == "production":
         try:
             ssl_ctx.load_verify_locations(cadata=settings.db_ca_cert)
         except ssl_module.SSLError as e:
-            raise RuntimeError(f"Invalid database CA certificate: {e}")
+            raise RuntimeError(f"Invalid database CA certificate: {e}") from e
     connect_args["ssl"] = ssl_ctx
 
 engine = create_async_engine(
@@ -33,7 +34,7 @@ class Base(DeclarativeBase):
     pass
 
 
-async def get_db() -> AsyncSession:
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
     async with async_session() as session:
         try:
             yield session
