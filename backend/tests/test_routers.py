@@ -423,3 +423,209 @@ class TestConfigRouter:
             data = response.json()
             assert "base_url" in data
             assert "auth_mode" in data
+
+
+@pytest.mark.asyncio
+class TestAuditRouter:
+    async def test_get_audit_log_returns_paginated_logs(self, override_dependencies, mock_current_user):
+        """Should return paginated audit logs for a box."""
+        from app.models.audit import AuditLog
+
+        mock_box = MagicMock()
+        mock_box.id = 1
+        mock_box.owner_id = mock_current_user.id
+
+        mock_log1 = MagicMock(spec=AuditLog)
+        mock_log1.id = 1
+        mock_log1.action = "box_created"
+        mock_log1.details = {"box_code": "BOX-0001"}
+        mock_log1.created_at = NOW
+
+        mock_log2 = MagicMock(spec=AuditLog)
+        mock_log2.id = 2
+        mock_log2.action = "item_added"
+        mock_log2.details = {"box_code": "BOX-0001", "item_name": "Cable"}
+        mock_log2.created_at = NOW
+
+        async def _get_db():
+            db = AsyncMock()
+
+            # First query: check box ownership
+            box_result = MagicMock()
+            box_result.scalar_one_or_none.return_value = mock_box
+
+            # Second query: count logs
+            count_result = MagicMock()
+            count_result.scalar.return_value = 2
+
+            # Third query: fetch logs
+            logs_result = MagicMock()
+            logs_result.scalars.return_value.all.return_value = [mock_log1, mock_log2]
+
+            db.execute.side_effect = [box_result, count_result, logs_result]
+            yield db
+
+        app.dependency_overrides[get_db] = _get_db
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get("/api/v1/boxes/1/audit-log?page=1&page_size=20")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["total"] == 2
+            assert data["page"] == 1
+            assert data["page_size"] == 20
+            assert len(data["logs"]) == 2
+            assert data["logs"][0]["action"] == "box_created"
+            assert data["logs"][1]["action"] == "item_added"
+
+        app.dependency_overrides.clear()
+
+    async def test_get_audit_log_returns_404_for_nonexistent_box(self, override_dependencies):
+        """Should return 404 if box doesn't exist or user doesn't own it."""
+        async def _get_db():
+            db = AsyncMock()
+            # Mock box ownership check returning None
+            box_result = MagicMock()
+            box_result.scalar_one_or_none.return_value = None
+            db.execute.return_value = box_result
+            yield db
+
+        app.dependency_overrides[get_db] = _get_db
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get("/api/v1/boxes/999/audit-log")
+
+            assert response.status_code == 404
+            assert response.json()["detail"] == "Box not found"
+
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+class TestTagsRouter:
+    async def test_list_tags(self, override_dependencies):
+        """Should return list of all tags."""
+        from app.models.tag import Tag
+
+        mock_tag1 = MagicMock(spec=Tag)
+        mock_tag1.id = 1
+        mock_tag1.name = "kitchen"
+        mock_tag1.created_at = NOW
+        mock_tag1.updated_at = NOW
+
+        mock_tag2 = MagicMock(spec=Tag)
+        mock_tag2.id = 2
+        mock_tag2.name = "winter"
+        mock_tag2.created_at = NOW
+        mock_tag2.updated_at = NOW
+
+        async def _get_db():
+            db = AsyncMock()
+            result = MagicMock()
+            result.scalars.return_value.all.return_value = [mock_tag1, mock_tag2]
+            db.execute.return_value = result
+            yield db
+
+        app.dependency_overrides[get_db] = _get_db
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get("/api/v1/tags")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert len(data) == 2
+            assert data[0]["name"] == "kitchen"
+            assert data[1]["name"] == "winter"
+
+        app.dependency_overrides.clear()
+
+    async def test_create_tag(self, override_dependencies, mock_current_user):
+        """Should create a new tag."""
+        from app.models.tag import Tag
+
+        async def _get_db():
+            db = AsyncMock()
+
+            # First query: check if tag exists
+            existing_result = MagicMock()
+            existing_result.scalar_one_or_none.return_value = None
+            db.execute.return_value = existing_result
+
+            # Mock the new tag that will be returned after refresh
+            new_tag = MagicMock(spec=Tag)
+            new_tag.id = 1
+            new_tag.name = "cables"
+            new_tag.created_at = NOW
+            new_tag.updated_at = NOW
+
+            async def mock_refresh(tag):
+                tag.id = new_tag.id
+                tag.name = new_tag.name
+                tag.created_at = new_tag.created_at
+                tag.updated_at = new_tag.updated_at
+
+            db.refresh = mock_refresh
+            yield db
+
+        app.dependency_overrides[get_db] = _get_db
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(
+                "/api/v1/tags",
+                json={"name": "cables"}
+            )
+
+            assert response.status_code == 201
+            data = response.json()
+            assert data["name"] == "cables"
+
+        app.dependency_overrides.clear()
+
+    async def test_create_tag_returns_409_for_duplicate(self, override_dependencies):
+        """Should return 409 if tag already exists."""
+        from app.models.tag import Tag
+
+        async def _get_db():
+            db = AsyncMock()
+
+            # Mock existing tag found
+            existing_tag = MagicMock(spec=Tag)
+            existing_tag.id = 1
+            existing_tag.name = "kitchen"
+
+            existing_result = MagicMock()
+            existing_result.scalar_one_or_none.return_value = existing_tag
+            db.execute.return_value = existing_result
+            yield db
+
+        app.dependency_overrides[get_db] = _get_db
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(
+                "/api/v1/tags",
+                json={"name": "kitchen"}
+            )
+
+            assert response.status_code == 409
+            assert response.json()["detail"] == "Tag already exists"
+
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+class TestHealthEndpoint:
+    async def test_health_check(self, override_dependencies):
+        """Should return health status."""
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get("/api/v1/health")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["status"] == "ok"
