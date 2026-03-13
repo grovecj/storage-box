@@ -42,4 +42,4 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf-2.0-0
       - run: pip install -r requirements.txt
-      - run: pytest --tb=short -q || [ $? -eq 5 ]
+      - run: pytest --tb=short -q --cov=app --cov-report=term-missing --cov-fail-under=80
