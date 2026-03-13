@@ -13,6 +13,10 @@ secret_key = "your-secret-key-here"
 # Custom domain (optional)
 custom_domain = "boxes.cartergrove.me"
 
+# Google OAuth (from Google Cloud Console > APIs & Services > Credentials)
+google_client_id     = "your-client-id.apps.googleusercontent.com"
+google_client_secret = "your-client-secret"
+
 # Optional overrides
 # region         = "nyc"
 # instance_size  = "basic-xxs"
