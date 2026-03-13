@@ -1,26 +1,19 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from authlib.integrations.starlette_client import OAuth
 from app.config import settings
 from app.database import get_db
 from app.schemas.user import UserResponse, TokenResponse
 from app.services import auth_service
 from app.dependencies import get_current_user
 import httpx
+import secrets
+from urllib.parse import quote
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-# Configure OAuth
-oauth = OAuth()
-if settings.google_client_id and settings.google_client_secret:
-    oauth.register(
-        name="google",
-        client_id=settings.google_client_id,
-        client_secret=settings.google_client_secret,
-        server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
-        client_kwargs={"scope": "openid email profile"},
-    )
+# In-memory state store for CSRF protection (use Redis in production at scale)
+_oauth_states: set[str] = set()
 
 
 @router.get("/google")
@@ -32,6 +25,9 @@ async def google_login():
             detail="Google OAuth is not configured. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET."
         )
 
+    state = secrets.token_urlsafe(32)
+    _oauth_states.add(state)
+
     redirect_uri = f"{settings.app_base_url}/api/v1/auth/google/callback"
     authorization_url = (
         f"https://accounts.google.com/o/oauth2/v2/auth"
@@ -40,15 +36,25 @@ async def google_login():
         f"&response_type=code"
         f"&scope=openid%20email%20profile"
         f"&access_type=offline"
+        f"&state={state}"
     )
     return RedirectResponse(url=authorization_url)
 
 
 @router.get("/google/callback")
-async def google_callback(code: str = Query(...), db: AsyncSession = Depends(get_db)):
+async def google_callback(
+    code: str = Query(...),
+    state: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+):
     """Handle Google OAuth callback, exchange code for tokens, and return JWT."""
     if not settings.google_client_id or not settings.google_client_secret:
         raise HTTPException(status_code=503, detail="Google OAuth is not configured")
+
+    # Validate CSRF state parameter
+    if state not in _oauth_states:
+        raise HTTPException(status_code=400, detail="Invalid OAuth state parameter")
+    _oauth_states.discard(state)
 
     redirect_uri = f"{settings.app_base_url}/api/v1/auth/google/callback"
 
@@ -88,8 +94,9 @@ async def google_callback(code: str = Query(...), db: AsyncSession = Depends(get
     # Create our own JWT
     jwt_token = auth_service.create_access_token(user.id)
 
-    # Redirect to frontend with token
-    frontend_url = f"{settings.app_base_url}/auth/callback?token={jwt_token}"
+    # Redirect to frontend with token in URL fragment (not query param)
+    # Fragments are not sent to the server or logged in server access logs
+    frontend_url = f"{settings.app_base_url}/auth/callback#token={jwt_token}"
     return RedirectResponse(url=frontend_url)
 
 

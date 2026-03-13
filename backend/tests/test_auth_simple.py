@@ -1,6 +1,6 @@
 """Simplified auth tests that focus on testable units without complex DB fixtures."""
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from jose import jwt
 from app.services import auth_service
 from app.config import settings
@@ -28,13 +28,13 @@ class TestJWTTokens:
     def test_token_expiration_is_set(self):
         """Should set expiration time according to config."""
         user_id = 456
-        before_creation = datetime.utcnow()
+        before_creation = datetime.now(timezone.utc)
         token = auth_service.create_access_token(user_id)
-        after_creation = datetime.utcnow()
+        after_creation = datetime.now(timezone.utc)
 
         payload = jwt.decode(token, settings.secret_key, algorithms=[settings.jwt_algorithm])
-        exp_time = datetime.fromtimestamp(payload["exp"])
-        iat_time = datetime.fromtimestamp(payload["iat"])
+        exp_time = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
+        iat_time = datetime.fromtimestamp(payload["iat"], tz=timezone.utc)
 
         expected_exp = iat_time + timedelta(minutes=settings.jwt_expiration_minutes)
         assert abs((exp_time - expected_exp).total_seconds()) < 10
@@ -67,8 +67,8 @@ class TestTokenValidation:
         # Create token that expired 1 hour ago
         expired_payload = {
             "sub": "123",
-            "exp": datetime.utcnow() - timedelta(hours=1),
-            "iat": datetime.utcnow() - timedelta(hours=2),
+            "exp": datetime.now(timezone.utc) - timedelta(hours=1),
+            "iat": datetime.now(timezone.utc) - timedelta(hours=2),
         }
         expired_token = jwt.encode(
             expired_payload,
@@ -85,7 +85,7 @@ class TestTokenValidation:
 
         payload = {
             "sub": "123",
-            "exp": datetime.utcnow() + timedelta(hours=1),
+            "exp": datetime.now(timezone.utc) + timedelta(hours=1),
         }
         bad_token = jwt.encode(payload, "wrong-secret", algorithm=settings.jwt_algorithm)
 
@@ -103,8 +103,8 @@ class TestTokenValidation:
         mock_db = AsyncMock()
 
         payload = {
-            "exp": datetime.utcnow() + timedelta(hours=1),
-            "iat": datetime.utcnow(),
+            "exp": datetime.now(timezone.utc) + timedelta(hours=1),
+            "iat": datetime.now(timezone.utc),
         }
         token = jwt.encode(payload, settings.secret_key, algorithm=settings.jwt_algorithm)
 
@@ -117,7 +117,7 @@ class TestTokenValidation:
 
         payload = {
             "sub": "not-a-number",
-            "exp": datetime.utcnow() + timedelta(hours=1),
+            "exp": datetime.now(timezone.utc) + timedelta(hours=1),
         }
         token = jwt.encode(payload, settings.secret_key, algorithm=settings.jwt_algorithm)
 

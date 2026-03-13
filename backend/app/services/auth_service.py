@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Any
 from jose import JWTError, jwt
 from sqlalchemy import select
@@ -45,11 +45,11 @@ async def get_or_create_user(db: AsyncSession, google_user_info: Dict[str, Any])
 
 def create_access_token(user_id: int) -> str:
     """Create a JWT access token for the user."""
-    expires_at = datetime.utcnow() + timedelta(minutes=settings.jwt_expiration_minutes)
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_expiration_minutes)
     payload = {
         "sub": str(user_id),
         "exp": expires_at,
-        "iat": datetime.utcnow(),
+        "iat": datetime.now(timezone.utc),
     }
     return jwt.encode(payload, settings.secret_key, algorithm=settings.jwt_algorithm)
 

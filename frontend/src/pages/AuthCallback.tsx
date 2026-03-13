@@ -1,22 +1,27 @@
 import { useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
 
 export default function AuthCallback() {
-  const [searchParams] = useSearchParams();
   const { login } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     const handleCallback = async () => {
-      const token = searchParams.get("token");
+      // Read token from URL fragment (not query param) for security
+      const hash = window.location.hash.substring(1);
+      const params = new URLSearchParams(hash);
+      const token = params.get("token");
 
       if (!token) {
         console.error("No token in callback URL");
         navigate("/login");
         return;
       }
+
+      // Clear the fragment from the URL immediately
+      window.history.replaceState(null, "", window.location.pathname);
 
       try {
         await login(token);
@@ -28,7 +33,7 @@ export default function AuthCallback() {
     };
 
     handleCallback();
-  }, [searchParams, login, navigate]);
+  }, [login, navigate]);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">

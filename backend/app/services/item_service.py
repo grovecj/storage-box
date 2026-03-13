@@ -226,10 +226,14 @@ async def remove_item(db: AsyncSession, box_id: int, item_id: int, user: User) -
     return True
 
 
-async def autocomplete_items(db: AsyncSession, query: str, limit: int = 10) -> list[dict]:
+async def autocomplete_items(db: AsyncSession, query: str, user: User, limit: int = 10) -> list[dict]:
     result = await db.execute(
         select(Item)
+        .join(BoxItem, BoxItem.item_id == Item.id)
+        .join(StorageBox, BoxItem.box_id == StorageBox.id)
+        .where(StorageBox.owner_id == user.id)
         .where(func.lower(Item.name).contains(query.lower()))
+        .distinct()
         .limit(limit)
     )
     items = result.scalars().all()
