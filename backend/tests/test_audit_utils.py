@@ -5,7 +5,6 @@ from datetime import datetime
 
 from app.utils.audit import log_action
 from app.models.audit import AuditLog
-from app.models.box import StorageBox
 
 
 @pytest.mark.asyncio
