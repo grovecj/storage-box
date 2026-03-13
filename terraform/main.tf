@@ -100,6 +100,18 @@ resource "digitalocean_app" "storage_box" {
         value = data.digitalocean_database_cluster.postgres.ca_certificate
         type  = "SECRET"
       }
+
+      env {
+        key   = "GOOGLE_CLIENT_ID"
+        value = var.google_client_id
+        type  = "SECRET"
+      }
+
+      env {
+        key   = "GOOGLE_CLIENT_SECRET"
+        value = var.google_client_secret
+        type  = "SECRET"
+      }
     }
   }
 }
