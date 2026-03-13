@@ -210,7 +210,7 @@ export default function Dashboard() {
           ))}
         </div>
       ) : (
-        <BoxMapView boxes={allBoxes} />
+        <BoxMapView boxes={allBoxes} total={total} />
       )}
 
       {/* Load more (only in grid view) */}

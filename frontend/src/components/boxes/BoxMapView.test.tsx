@@ -16,7 +16,7 @@ vi.mock("react-leaflet", () => ({
   Popup: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="map-popup">{children}</div>
   ),
-  useMap: () => ({ fitBounds: vi.fn() }),
+  useMap: () => ({ fitBounds: vi.fn(), setView: vi.fn() }),
 }));
 
 // Mock leaflet
@@ -337,5 +337,25 @@ describe("BoxMapView", () => {
     );
 
     expect(screen.getByText(/no boxes have location data yet/i)).toBeInTheDocument();
+  });
+
+  it("shows truncation warning when total exceeds displayed boxes", () => {
+    render(
+      <MemoryRouter>
+        <BoxMapView boxes={[geoBox, geoBox2]} total={150} />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText(/showing 2 of 150 total boxes/i)).toBeInTheDocument();
+  });
+
+  it("does not show truncation warning when all boxes are displayed", () => {
+    render(
+      <MemoryRouter>
+        <BoxMapView boxes={[geoBox, geoBox2]} total={2} />
+      </MemoryRouter>
+    );
+
+    expect(screen.queryByText(/total boxes/i)).not.toBeInTheDocument();
   });
 });

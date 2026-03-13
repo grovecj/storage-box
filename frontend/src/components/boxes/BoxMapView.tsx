@@ -16,6 +16,7 @@ L.Icon.Default.mergeOptions({
 
 interface BoxMapViewProps {
   boxes: StorageBox[];
+  total?: number;
 }
 
 // Helper component to auto-fit map bounds
@@ -24,6 +25,11 @@ function MapBoundsFitter({ boxes }: { boxes: StorageBox[] }) {
 
   useEffect(() => {
     if (boxes.length === 0) return;
+
+    if (boxes.length === 1) {
+      map.setView([boxes[0]!.latitude!, boxes[0]!.longitude!], 13);
+      return;
+    }
 
     const bounds = new LatLngBounds(
       boxes.map((box) => [box.latitude!, box.longitude!] as [number, number])
@@ -38,7 +44,7 @@ function MapBoundsFitter({ boxes }: { boxes: StorageBox[] }) {
   return null;
 }
 
-export default function BoxMapView({ boxes }: BoxMapViewProps) {
+export default function BoxMapView({ boxes, total }: BoxMapViewProps) {
   // Separate geolocated from non-geolocated boxes
   const geolocatedBoxes = boxes.filter(
     (box) => box.latitude != null && box.longitude != null
@@ -124,6 +130,11 @@ export default function BoxMapView({ boxes }: BoxMapViewProps) {
               <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">
                 Showing {geolocatedBoxes.length} geolocated box
                 {geolocatedBoxes.length !== 1 ? "es" : ""}
+                {total != null && total > boxes.length && (
+                  <span className="text-amber-600 dark:text-amber-400">
+                    {" "}(showing {boxes.length} of {total} total boxes)
+                  </span>
+                )}
               </p>
             </div>
           )}

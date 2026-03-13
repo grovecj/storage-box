@@ -32,7 +32,7 @@ vi.mock("react-leaflet", () => ({
   Popup: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="map-popup">{children}</div>
   ),
-  useMap: () => ({ fitBounds: vi.fn() }),
+  useMap: () => ({ fitBounds: vi.fn(), setView: vi.fn() }),
 }));
 
 // Mock leaflet
