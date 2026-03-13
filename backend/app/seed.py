@@ -11,6 +11,7 @@ from app.models.box import StorageBox
 from app.models.item import Item, BoxItem, BoxItemTag
 from app.models.tag import Tag
 from app.models.audit import AuditLog
+from app.models.user import User
 
 # Realistic locations with GPS coordinates
 LOCATIONS = [
@@ -123,13 +124,26 @@ async def seed_if_empty(db: AsyncSession) -> None:
     if result.scalar() > 0:
         return
 
+    # Create or get dev user
+    user_result = await db.execute(select(User).where(User.google_id == "dev-user"))
+    dev_user = user_result.scalar_one_or_none()
+    if not dev_user:
+        dev_user = User(
+            google_id="dev-user",
+            email="dev@localhost",
+            name="Dev User",
+            picture_url=None,
+        )
+        db.add(dev_user)
+        await db.flush()
+
     # Ensure all tags exist
     all_tag_names = ["PCB", "VACATION", "LONG_TERM", "SEASONAL", "CAMPING",
                      "TOOLS", "CABLES", "HOME_MAINTENANCE"]
     for tag_name in all_tag_names:
         await db.execute(
-            text("INSERT INTO tags (name) VALUES (:name) ON CONFLICT (name) DO NOTHING"),
-            {"name": tag_name},
+            text("INSERT INTO tags (name, created_by, updated_by) VALUES (:name, :user_id, :user_id) ON CONFLICT (name) DO NOTHING"),
+            {"name": tag_name, "user_id": dev_user.id},
         )
     await db.flush()
 
@@ -151,6 +165,9 @@ async def seed_if_empty(db: AsyncSession) -> None:
             name=name,
             location=location_wkt,
             location_name=location_name,
+            owner_id=dev_user.id,
+            created_by=dev_user.id,
+            updated_by=dev_user.id,
         )
         db.add(box)
         await db.flush()
@@ -165,7 +182,7 @@ async def seed_if_empty(db: AsyncSession) -> None:
 
         for item_name, max_qty in chosen_items:
             if item_name not in item_objects:
-                item_obj = Item(name=item_name)
+                item_obj = Item(name=item_name, created_by=dev_user.id, updated_by=dev_user.id)
                 db.add(item_obj)
                 await db.flush()
                 item_objects[item_name] = item_obj
@@ -183,7 +200,13 @@ async def seed_if_empty(db: AsyncSession) -> None:
                 continue
 
             quantity = random.randint(1, max_qty)
-            box_item = BoxItem(box_id=box.id, item_id=item_obj.id, quantity=quantity)
+            box_item = BoxItem(
+                box_id=box.id,
+                item_id=item_obj.id,
+                quantity=quantity,
+                created_by=dev_user.id,
+                updated_by=dev_user.id,
+            )
             db.add(box_item)
             await db.flush()
 
@@ -196,7 +219,7 @@ async def seed_if_empty(db: AsyncSession) -> None:
         db.add(AuditLog(
             box_id=box.id,
             action="BOX_CREATED",
-            details={"box_code": box.box_code, "name": box.name},
+            details={"box_code": box.box_code, "name": box.name, "user_id": dev_user.id},
         ))
 
     await db.commit()

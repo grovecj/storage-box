@@ -4,11 +4,31 @@ from sqlalchemy.orm import selectinload
 
 from app.models.box import StorageBox
 from app.models.item import BoxItem, BoxItemTag
+from app.models.user import User
 from app.schemas.transfer import TransferRequest, TransferResponse
 from app.utils.audit import log_action
 
 
-async def transfer_item(db: AsyncSession, data: TransferRequest) -> TransferResponse:
+async def transfer_item(db: AsyncSession, data: TransferRequest, user: User) -> TransferResponse:
+    # Verify both boxes belong to the user
+    from_box_result = await db.execute(
+        select(StorageBox)
+        .where(StorageBox.id == data.from_box_id)
+        .where(StorageBox.owner_id == user.id)
+    )
+    from_box = from_box_result.scalar_one_or_none()
+    if not from_box:
+        raise ValueError("Source box not found or access denied")
+
+    to_box_result = await db.execute(
+        select(StorageBox)
+        .where(StorageBox.id == data.to_box_id)
+        .where(StorageBox.owner_id == user.id)
+    )
+    to_box = to_box_result.scalar_one_or_none()
+    if not to_box:
+        raise ValueError("Destination box not found or access denied")
+
     # Get source box_item
     source_result = await db.execute(
         select(BoxItem)
@@ -22,14 +42,6 @@ async def transfer_item(db: AsyncSession, data: TransferRequest) -> TransferResp
     if data.quantity > source_bi.quantity:
         raise ValueError(f"Cannot transfer {data.quantity}, only {source_bi.quantity} available")
 
-    # Get box codes for response
-    from_box = await db.execute(select(StorageBox).where(StorageBox.id == data.from_box_id))
-    from_box = from_box.scalar_one()
-    to_box = await db.execute(select(StorageBox).where(StorageBox.id == data.to_box_id))
-    to_box = to_box.scalar_one_or_none()
-    if not to_box:
-        raise ValueError("Destination box not found")
-
     # Check if item exists in destination
     dest_result = await db.execute(
         select(BoxItem)
@@ -39,11 +51,14 @@ async def transfer_item(db: AsyncSession, data: TransferRequest) -> TransferResp
 
     if dest_bi:
         dest_bi.quantity += data.quantity
+        dest_bi.updated_by = user.id
     else:
         dest_bi = BoxItem(
             box_id=data.to_box_id,
             item_id=data.item_id,
             quantity=data.quantity,
+            created_by=user.id,
+            updated_by=user.id,
         )
         db.add(dest_bi)
         await db.flush()
@@ -65,12 +80,14 @@ async def transfer_item(db: AsyncSession, data: TransferRequest) -> TransferResp
         "quantity": data.quantity,
         "from_box": from_box.box_code,
         "to_box": to_box.box_code,
+        "user_id": user.id,
     })
     await log_action(db, data.to_box_id, "ITEM_RECEIVED", {
         "item_name": item_name,
         "quantity": data.quantity,
         "from_box": from_box.box_code,
         "to_box": to_box.box_code,
+        "user_id": user.id,
     })
 
     await db.commit()

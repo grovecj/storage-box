@@ -7,6 +7,10 @@ class Settings(BaseSettings):
     app_env: str = "development"
     secret_key: str = "dev-secret-key"
     db_ca_cert: str = ""
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    jwt_algorithm: str = "HS256"
+    jwt_expiration_minutes: int = 60 * 24 * 7  # 7 days
 
     model_config = {"env_file": ".env"}
 

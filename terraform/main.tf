@@ -97,7 +97,19 @@ resource "digitalocean_app" "storage_box" {
 
       env {
         key   = "DB_CA_CERT"
-        value = data.digitalocean_database_cluster.postgres.ca_certificate
+        value = var.db_ca_cert
+        type  = "SECRET"
+      }
+
+      env {
+        key   = "GOOGLE_CLIENT_ID"
+        value = var.google_client_id
+        type  = "SECRET"
+      }
+
+      env {
+        key   = "GOOGLE_CLIENT_SECRET"
+        value = var.google_client_secret
         type  = "SECRET"
       }
     }

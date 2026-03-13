@@ -5,9 +5,10 @@ from sqlalchemy.orm import selectinload
 from app.models.box import StorageBox
 from app.models.item import Item, BoxItem, BoxItemTag
 from app.models.tag import Tag
+from app.models.user import User
 
 
-async def search(db: AsyncSession, query: str) -> dict:
+async def search(db: AsyncSession, query: str, user: User) -> dict:
     q = query.strip()
     if not q:
         return {"boxes": [], "items": []}
@@ -22,6 +23,7 @@ async def search(db: AsyncSession, query: str) -> dict:
             func.ST_X(geom).label("lng"),
         )
         .outerjoin(BoxItem, BoxItem.box_id == StorageBox.id)
+        .where(StorageBox.owner_id == user.id)
         .where(
             or_(
                 StorageBox.box_code.ilike(f"%{q}%"),
@@ -45,12 +47,14 @@ async def search(db: AsyncSession, query: str) -> dict:
             "match_type": "box",
         })
 
-    # Search items by name or tag
+    # Search items by name or tag (only in user's boxes)
     item_result = await db.execute(
         select(BoxItem)
         .join(Item, BoxItem.item_id == Item.id)
+        .join(StorageBox, BoxItem.box_id == StorageBox.id)
         .outerjoin(BoxItemTag, BoxItemTag.box_item_id == BoxItem.id)
         .outerjoin(Tag, BoxItemTag.tag_id == Tag.id)
+        .where(StorageBox.owner_id == user.id)
         .where(
             or_(
                 Item.name.ilike(f"%{q}%"),

@@ -10,6 +10,7 @@ from sqlalchemy.orm import selectinload
 from app.models.box import StorageBox
 from app.models.item import BoxItem, BoxItemTag
 from app.models.tag import Tag
+from app.models.user import User
 from app.schemas.report import ReportRequest
 
 
@@ -75,10 +76,11 @@ REPORT_HTML_TEMPLATE = """
 
 
 async def _fetch_report_data(
-    db: AsyncSession, request: ReportRequest
+    db: AsyncSession, request: ReportRequest, user: User
 ) -> list[dict]:
     query = (
         select(StorageBox)
+        .where(StorageBox.owner_id == user.id)
         .options(
             selectinload(StorageBox.box_items)
             .selectinload(BoxItem.item),
@@ -142,8 +144,8 @@ async def _fetch_report_data(
     return report_data
 
 
-async def generate_html_report(db: AsyncSession, request: ReportRequest) -> str:
-    data = await _fetch_report_data(db, request)
+async def generate_html_report(db: AsyncSession, request: ReportRequest, user: User) -> str:
+    data = await _fetch_report_data(db, request, user)
     template = Template(REPORT_HTML_TEMPLATE)
     return template.render(
         boxes=data,
@@ -151,14 +153,14 @@ async def generate_html_report(db: AsyncSession, request: ReportRequest) -> str:
     )
 
 
-async def generate_pdf_report(db: AsyncSession, request: ReportRequest) -> bytes:
-    html = await generate_html_report(db, request)
+async def generate_pdf_report(db: AsyncSession, request: ReportRequest, user: User) -> bytes:
+    html = await generate_html_report(db, request, user)
     from weasyprint import HTML
     return HTML(string=html).write_pdf()
 
 
-async def generate_text_report(db: AsyncSession, request: ReportRequest) -> str:
-    data = await _fetch_report_data(db, request)
+async def generate_text_report(db: AsyncSession, request: ReportRequest, user: User) -> str:
+    data = await _fetch_report_data(db, request, user)
     generated_at = datetime.now().strftime("%Y-%m-%d %H:%M")
 
     lines = []
@@ -208,8 +210,8 @@ async def generate_text_report(db: AsyncSession, request: ReportRequest) -> str:
     return "\n".join(lines)
 
 
-async def generate_csv_report(db: AsyncSession, request: ReportRequest) -> str:
-    data = await _fetch_report_data(db, request)
+async def generate_csv_report(db: AsyncSession, request: ReportRequest, user: User) -> str:
+    data = await _fetch_report_data(db, request, user)
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(["Box Code", "Box Name", "Location", "Latitude", "Longitude", "Item", "Quantity", "Tags"])

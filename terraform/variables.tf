@@ -51,3 +51,22 @@ variable "secret_key" {
   type        = string
   sensitive   = true
 }
+
+variable "db_ca_cert" {
+  description = "PEM-encoded CA certificate for database SSL verification (empty = use system defaults)"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "google_client_id" {
+  description = "Google OAuth client ID"
+  type        = string
+  sensitive   = true
+}
+
+variable "google_client_secret" {
+  description = "Google OAuth client secret"
+  type        = string
+  sensitive   = true
+}
