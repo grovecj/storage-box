@@ -39,10 +39,24 @@ export default function Dashboard() {
   const fetchAllBoxes = useCallback(async () => {
     setLoading(true);
     try {
-      const params: Record<string, unknown> = { page: 1, page_size: 100 };
-      const res = await listBoxes(params as Parameters<typeof listBoxes>[0]);
-      setAllBoxes(res.data.boxes);
-      setTotal(res.data.total);
+      const pageSize = 100;
+      let currentPage = 1;
+      let all: StorageBox[] = [];
+      let fetchedTotal = 0;
+
+      // Fetch pages until we have all boxes
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const params: Record<string, unknown> = { page: currentPage, page_size: pageSize };
+        const res = await listBoxes(params as Parameters<typeof listBoxes>[0]);
+        all = [...all, ...res.data.boxes];
+        fetchedTotal = res.data.total;
+        if (all.length >= fetchedTotal || res.data.boxes.length < pageSize) break;
+        currentPage++;
+      }
+
+      setAllBoxes(all);
+      setTotal(fetchedTotal);
     } finally {
       setLoading(false);
     }

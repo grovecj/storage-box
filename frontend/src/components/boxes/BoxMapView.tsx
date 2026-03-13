@@ -125,19 +125,17 @@ export default function BoxMapView({ boxes, total }: BoxMapViewProps) {
               <MapBoundsFitter boxes={geolocatedBoxes} />
             </MapContainer>
           </div>
-          {geolocatedBoxes.length > 0 && (
-            <div className="px-4 py-2 bg-slate-50 dark:bg-navy-800 border-t border-slate-200 dark:border-navy-700">
-              <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">
-                Showing {geolocatedBoxes.length} geolocated box
-                {geolocatedBoxes.length !== 1 ? "es" : ""}
-                {total != null && total > boxes.length && (
-                  <span className="text-amber-600 dark:text-amber-400">
-                    {" "}(showing {boxes.length} of {total} total boxes)
-                  </span>
-                )}
-              </p>
-            </div>
-          )}
+          <div className="px-4 py-2 bg-slate-50 dark:bg-navy-800 border-t border-slate-200 dark:border-navy-700">
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">
+              Showing {geolocatedBoxes.length} geolocated box
+              {geolocatedBoxes.length !== 1 ? "es" : ""}
+              {total != null && total > boxes.length && (
+                <span className="text-amber-600 dark:text-amber-400">
+                  {" "}(showing {boxes.length} of {total} total boxes)
+                </span>
+              )}
+            </p>
+          </div>
         </div>
       )}
 
