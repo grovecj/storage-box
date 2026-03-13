@@ -136,6 +136,15 @@ class TestBoxesRouter:
                 assert response.status_code == 200
                 assert response.json()["id"] == 1
 
+    async def test_get_box_by_code_returns_404_if_not_found(self, override_dependencies):
+        """Should return 404 if box code doesn't exist."""
+        with patch("app.routers.boxes.box_service.get_box_by_code", return_value=None):
+            transport = ASGITransport(app=app)
+            async with AsyncClient(transport=transport, base_url="http://test") as client:
+                response = await client.get("/api/v1/boxes/code/BOX-9999")
+
+                assert response.status_code == 404
+
     async def test_update_box(self, override_dependencies):
         """Should update box."""
         mock_response = BoxResponse(
@@ -158,6 +167,18 @@ class TestBoxesRouter:
                 assert response.status_code == 200
                 assert response.json()["name"] == "Updated Name"
 
+    async def test_update_box_returns_404_if_not_found(self, override_dependencies):
+        """Should return 404 if box to update doesn't exist."""
+        with patch("app.routers.boxes.box_service.update_box", return_value=None):
+            transport = ASGITransport(app=app)
+            async with AsyncClient(transport=transport, base_url="http://test") as client:
+                response = await client.put(
+                    "/api/v1/boxes/999",
+                    json={"name": "Nope"}
+                )
+
+                assert response.status_code == 404
+
     async def test_delete_box(self, override_dependencies):
         """Should delete box."""
         with patch("app.routers.boxes.box_service.delete_box", return_value={"box_code": "BOX-0001", "items_removed": 3}):
@@ -169,6 +190,15 @@ class TestBoxesRouter:
                 data = response.json()
                 assert data["box_code"] == "BOX-0001"
                 assert data["items_removed"] == 3
+
+    async def test_delete_box_returns_404_if_not_found(self, override_dependencies):
+        """Should return 404 if box to delete doesn't exist."""
+        with patch("app.routers.boxes.box_service.delete_box", return_value=None):
+            transport = ASGITransport(app=app)
+            async with AsyncClient(transport=transport, base_url="http://test") as client:
+                response = await client.delete("/api/v1/boxes/999")
+
+                assert response.status_code == 404
 
 
 @pytest.mark.asyncio
@@ -261,6 +291,18 @@ class TestItemsRouter:
                 assert response.status_code == 200
                 assert response.json()["quantity"] == 10
 
+    async def test_update_item_returns_404_if_not_found(self, override_dependencies):
+        """Should return 404 if item doesn't exist in box."""
+        with patch("app.routers.items.item_service.update_item", return_value=None):
+            transport = ASGITransport(app=app)
+            async with AsyncClient(transport=transport, base_url="http://test") as client:
+                response = await client.put(
+                    "/api/v1/boxes/1/items/999",
+                    json={"quantity": 5}
+                )
+
+                assert response.status_code == 404
+
     async def test_delete_item(self, override_dependencies):
         """Should delete item."""
         with patch("app.routers.items.item_service.remove_item", return_value=True):
@@ -270,6 +312,15 @@ class TestItemsRouter:
 
                 assert response.status_code == 200
                 assert response.json()["message"] == "Item removed"
+
+    async def test_delete_item_returns_404_if_not_found(self, override_dependencies):
+        """Should return 404 if item to delete doesn't exist."""
+        with patch("app.routers.items.item_service.remove_item", return_value=False):
+            transport = ASGITransport(app=app)
+            async with AsyncClient(transport=transport, base_url="http://test") as client:
+                response = await client.delete("/api/v1/boxes/1/items/999")
+
+                assert response.status_code == 404
 
 
 @pytest.mark.asyncio

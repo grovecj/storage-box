@@ -12,7 +12,11 @@ from app.models.tag import Tag
 @pytest.fixture
 def mock_db():
     """Create a mock AsyncSession for database operations."""
-    return AsyncMock()
+    db = AsyncMock()
+    # db.add() is synchronous in SQLAlchemy, so use MagicMock to avoid
+    # "coroutine never awaited" warnings from AsyncMock.
+    db.add = MagicMock()
+    return db
 
 
 @pytest.fixture
