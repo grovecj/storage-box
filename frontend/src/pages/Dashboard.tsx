@@ -39,7 +39,7 @@ export default function Dashboard() {
   const fetchAllBoxes = useCallback(async () => {
     setLoading(true);
     try {
-      const params: Record<string, unknown> = { page_size: 0 };
+      const params: Record<string, unknown> = { page: 1, page_size: 100 };
       const res = await listBoxes(params as Parameters<typeof listBoxes>[0]);
       setAllBoxes(res.data.boxes);
       setTotal(res.data.total);
