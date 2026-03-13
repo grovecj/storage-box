@@ -1,16 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "@/api/client";
-
-export interface User {
-  id: number;
-  google_id: string;
-  email: string;
-  name: string;
-  picture_url: string | null;
-  created_at: string;
-  updated_at: string;
-}
+import type { User } from "@/types";
 
 interface AuthContextType {
   user: User | null;

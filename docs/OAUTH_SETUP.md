@@ -17,7 +17,7 @@ If `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are not configured, the app run
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a new project or select an existing one
-3. Enable the Google+ API (or People API)
+3. No extra APIs need to be enabled for basic OIDC login (openid, email, profile scopes work by default)
 
 ### 2. Configure OAuth Consent Screen
 
@@ -96,7 +96,7 @@ Or set via DigitalOcean App Platform console:
 5. Backend exchanges code for user info
 6. Backend creates or updates user in database
 7. Backend generates JWT token
-8. Backend redirects to frontend `/auth/callback?token=<jwt>`
+8. Backend redirects to frontend `/auth/callback#token=<jwt>` (fragment, not query param)
 9. Frontend stores token in localStorage
 10. Frontend redirects to dashboard
 

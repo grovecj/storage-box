@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
@@ -8,7 +8,6 @@ from app.services import auth_service
 from app.dependencies import get_current_user
 import httpx
 import secrets
-from urllib.parse import quote
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 

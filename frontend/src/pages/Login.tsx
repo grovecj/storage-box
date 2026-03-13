@@ -11,13 +11,9 @@ export default function Login() {
     // Check if we're in dev mode (OAuth not configured)
     const checkDevMode = async () => {
       try {
-        // Try to get dev token to see if it's available
-        const response = await api.get("/auth/dev-token");
-        if (response.status === 200) {
-          setIsDevMode(true);
-        }
-      } catch (err) {
-        // If dev-token endpoint returns 403, OAuth is configured
+        const response = await api.get("/config");
+        setIsDevMode(response.data.auth_mode === "dev");
+      } catch {
         setIsDevMode(false);
       }
     };
