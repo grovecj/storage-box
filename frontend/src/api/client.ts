@@ -9,6 +9,8 @@ import type {
   SearchResult,
   TransferRequest,
   ReportRequest,
+  BoxGroup,
+  GroupListResponse,
 } from "@/types";
 
 const api = axios.create({
@@ -48,6 +50,7 @@ export const listBoxes = (params?: {
   sort?: string;
   lat?: number;
   lng?: number;
+  group_id?: number;
 }) => api.get<BoxListResponse>("/boxes", { params });
 
 export const getBox = (id: number) => api.get<StorageBox>(`/boxes/${id}`);
@@ -55,10 +58,10 @@ export const getBox = (id: number) => api.get<StorageBox>(`/boxes/${id}`);
 export const getBoxByCode = (code: string) =>
   api.get<StorageBox>(`/boxes/code/${code}`);
 
-export const createBox = (data: { name: string; location?: { latitude: number; longitude: number } | null; location_name?: string | null }) =>
+export const createBox = (data: { name: string; location?: { latitude: number; longitude: number } | null; location_name?: string | null; group_id?: number | null }) =>
   api.post<StorageBox>("/boxes", data);
 
-export const updateBox = (id: number, data: { name?: string; location?: { latitude: number; longitude: number } | null; location_name?: string | null }) =>
+export const updateBox = (id: number, data: { name?: string; location?: { latitude: number; longitude: number } | null; location_name?: string | null; group_id?: number | null }) =>
   api.put<StorageBox>(`/boxes/${id}`, data);
 
 export const deleteBox = (id: number) => api.delete(`/boxes/${id}`);
@@ -104,5 +107,16 @@ export const getAuditLog = (boxId: number, params?: { page?: number; page_size?:
 
 // Config
 export const getConfig = () => api.get<{ base_url: string }>("/config");
+
+// Groups
+export const listGroups = () => api.get<GroupListResponse>("/groups");
+
+export const createGroup = (data: { name: string; latitude?: number; longitude?: number }) =>
+  api.post<BoxGroup>("/groups", data);
+
+export const updateGroup = (id: number, data: { name?: string; latitude?: number; longitude?: number }) =>
+  api.put<BoxGroup>(`/groups/${id}`, data);
+
+export const deleteGroup = (id: number) => api.delete(`/groups/${id}`);
 
 export default api;

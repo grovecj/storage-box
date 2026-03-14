@@ -4,9 +4,11 @@ import { Plus, MapPin, Clock, Printer, Map, LayoutGrid } from "lucide-react";
 import BoxCard from "@/components/boxes/BoxCard";
 import CreateBoxModal from "@/components/boxes/CreateBoxModal";
 import BoxMapView from "@/components/boxes/BoxMapView";
-import { listBoxes } from "@/api/client";
+import GroupFilter from "@/components/groups/GroupFilter";
+import CreateGroupModal from "@/components/groups/CreateGroupModal";
+import { listBoxes, listGroups, createGroup } from "@/api/client";
 import { useGeolocation } from "@/hooks/useGeolocation";
-import type { StorageBox } from "@/types";
+import type { StorageBox, BoxGroup } from "@/types";
 
 export default function Dashboard() {
   const [boxes, setBoxes] = useState<StorageBox[]>([]);
@@ -17,6 +19,9 @@ export default function Dashboard() {
   const [view, setView] = useState<"grid" | "map">("grid");
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const [groups, setGroups] = useState<BoxGroup[]>([]);
+  const [activeGroupId, setActiveGroupId] = useState<number | null>(null);
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
   const navTo = useNavigate();
   const geo = useGeolocation();
 
@@ -28,13 +33,16 @@ export default function Dashboard() {
         params.lat = geo.latitude;
         params.lng = geo.longitude;
       }
+      if (activeGroupId !== null) {
+        params.group_id = activeGroupId;
+      }
       const res = await listBoxes(params as Parameters<typeof listBoxes>[0]);
       setBoxes((prev) => append ? [...prev, ...res.data.boxes] : res.data.boxes);
       setTotal(res.data.total);
     } finally {
       setLoading(false);
     }
-  }, [page, sort, geo.latitude, geo.longitude]);
+  }, [page, sort, geo.latitude, geo.longitude, activeGroupId]);
 
   const fetchAllBoxes = useCallback(async () => {
     setLoading(true);
@@ -48,6 +56,9 @@ export default function Dashboard() {
       // eslint-disable-next-line no-constant-condition
       while (true) {
         const params: Record<string, unknown> = { page: currentPage, page_size: pageSize };
+        if (activeGroupId !== null) {
+          params.group_id = activeGroupId;
+        }
         const res = await listBoxes(params as Parameters<typeof listBoxes>[0]);
         all = [...all, ...res.data.boxes];
         fetchedTotal = res.data.total;
@@ -60,7 +71,20 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
+  }, [activeGroupId]);
+
+  const fetchGroups = useCallback(async () => {
+    try {
+      const res = await listGroups();
+      setGroups(res.data.groups);
+    } catch (error) {
+      console.error("Failed to fetch groups:", error);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchGroups();
+  }, [fetchGroups]);
 
   useEffect(() => {
     if (view === "grid") {
@@ -118,10 +142,29 @@ export default function Dashboard() {
     }
   }, [pendingProximity, geo.error]);
 
+  const handleGroupSelect = (groupId: number | null) => {
+    setActiveGroupId(groupId);
+    setPage(1);
+    setBoxes([]);
+  };
+
+  const handleCreateGroup = async (data: {
+    name: string;
+    latitude?: number;
+    longitude?: number;
+  }) => {
+    try {
+      await createGroup(data);
+      await fetchGroups();
+    } catch (error) {
+      console.error("Failed to create group:", error);
+    }
+  };
+
   return (
     <div>
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
         <div>
           <h1 className="stencil-heading">Inventory</h1>
           <p className="mt-2 text-sm font-mono text-slate-500 dark:text-slate-400">
@@ -190,6 +233,13 @@ export default function Dashboard() {
             Print All QR
           </button>
           <button
+            onClick={() => setShowCreateGroup(true)}
+            className="flex items-center gap-2 px-3 py-2 text-xs font-medium uppercase tracking-wider bg-slate-100 dark:bg-navy-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-navy-700 rounded-md transition-colors"
+          >
+            <Plus size={14} />
+            New Group
+          </button>
+          <button
             onClick={() => setShowCreate(true)}
             className="flex items-center gap-2 px-4 py-2 text-sm font-semibold uppercase tracking-wider bg-amber-500 hover:bg-amber-600 text-slate-900 rounded-md transition-colors"
           >
@@ -198,6 +248,15 @@ export default function Dashboard() {
           </button>
         </div>
       </div>
+
+      {/* Group Filter */}
+      {groups.length > 0 && (
+        <GroupFilter
+          groups={groups}
+          activeGroupId={activeGroupId}
+          onSelect={handleGroupSelect}
+        />
+      )}
 
       {/* Content: Grid or Map View */}
       {loading ? (
@@ -243,6 +302,12 @@ export default function Dashboard() {
         open={showCreate}
         onClose={() => setShowCreate(false)}
         onCreated={fetchBoxes}
+      />
+
+      <CreateGroupModal
+        open={showCreateGroup}
+        onClose={() => setShowCreateGroup(false)}
+        onCreated={handleCreateGroup}
       />
     </div>
   );

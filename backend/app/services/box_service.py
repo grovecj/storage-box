@@ -18,6 +18,7 @@ def _box_to_response(
     item_count: int = 0,
     lat: float | None = None,
     lng: float | None = None,
+    group_name: str | None = None,
 ) -> BoxResponse:
     return BoxResponse(
         id=box.id,
@@ -26,6 +27,8 @@ def _box_to_response(
         latitude=lat,
         longitude=lng,
         location_name=box.location_name,
+        group_id=box.group_id,
+        group_name=group_name,
         item_count=item_count,
         created_at=box.created_at,
         updated_at=box.updated_at,
@@ -63,6 +66,7 @@ async def create_box(db: AsyncSession, data: BoxCreate, user: User) -> BoxRespon
         name=data.name,
         location=location,
         location_name=data.location_name,
+        group_id=data.group_id,
         owner_id=user.id,
         created_by=user.id,
         updated_by=user.id,
@@ -76,10 +80,21 @@ async def create_box(db: AsyncSession, data: BoxCreate, user: User) -> BoxRespon
     })
     await db.commit()
 
-    return _box_to_response(box, item_count=0, lat=lat, lng=lng)
+    # Get group name if group_id is set
+    group_name = None
+    if data.group_id:
+        from app.models.group import BoxGroup
+        group_result = await db.execute(
+            select(BoxGroup.name).where(BoxGroup.id == data.group_id)
+        )
+        group_name = group_result.scalar_one_or_none()
+
+    return _box_to_response(box, item_count=0, lat=lat, lng=lng, group_name=group_name)
 
 
 async def get_box(db: AsyncSession, box_id: int, user: User) -> BoxResponse | None:
+    from app.models.group import BoxGroup
+
     lat_col, lng_col = _location_columns()
     result = await db.execute(
         select(
@@ -87,20 +102,24 @@ async def get_box(db: AsyncSession, box_id: int, user: User) -> BoxResponse | No
             func.count(BoxItem.id).label("item_count"),
             lat_col,
             lng_col,
+            BoxGroup.name.label("group_name"),
         )
         .outerjoin(BoxItem, BoxItem.box_id == StorageBox.id)
+        .outerjoin(BoxGroup, BoxGroup.id == StorageBox.group_id)
         .where(StorageBox.id == box_id)
         .where(StorageBox.owner_id == user.id)
-        .group_by(StorageBox.id)
+        .group_by(StorageBox.id, BoxGroup.name)
     )
     row = result.first()
     if not row or not row[0]:
         return None
-    box, item_count, lat, lng = row
-    return _box_to_response(box, item_count=item_count, lat=lat, lng=lng)
+    box, item_count, lat, lng, group_name = row
+    return _box_to_response(box, item_count=item_count, lat=lat, lng=lng, group_name=group_name)
 
 
 async def get_box_by_code(db: AsyncSession, box_code: str, user: User) -> BoxResponse | None:
+    from app.models.group import BoxGroup
+
     lat_col, lng_col = _location_columns()
     result = await db.execute(
         select(
@@ -108,17 +127,19 @@ async def get_box_by_code(db: AsyncSession, box_code: str, user: User) -> BoxRes
             func.count(BoxItem.id).label("item_count"),
             lat_col,
             lng_col,
+            BoxGroup.name.label("group_name"),
         )
         .outerjoin(BoxItem, BoxItem.box_id == StorageBox.id)
+        .outerjoin(BoxGroup, BoxGroup.id == StorageBox.group_id)
         .where(StorageBox.box_code == box_code)
         .where(StorageBox.owner_id == user.id)
-        .group_by(StorageBox.id)
+        .group_by(StorageBox.id, BoxGroup.name)
     )
     row = result.first()
     if not row or not row[0]:
         return None
-    box, item_count, lat, lng = row
-    return _box_to_response(box, item_count=item_count, lat=lat, lng=lng)
+    box, item_count, lat, lng, group_name = row
+    return _box_to_response(box, item_count=item_count, lat=lat, lng=lng, group_name=group_name)
 
 
 async def list_boxes(
@@ -129,10 +150,20 @@ async def list_boxes(
     sort: str = "recent",
     lat: float | None = None,
     lng: float | None = None,
+    group_id: int | None = None,
 ) -> BoxListResponse:
-    count_result = await db.execute(
-        select(func.count(StorageBox.id)).where(StorageBox.owner_id == user.id)
-    )
+    from app.models.group import BoxGroup
+
+    # Build count query with group filter
+    count_query = select(func.count(StorageBox.id)).where(StorageBox.owner_id == user.id)
+    if group_id is not None:
+        if group_id == -1:
+            # -1 means "Ungrouped"
+            count_query = count_query.where(StorageBox.group_id.is_(None))
+        else:
+            count_query = count_query.where(StorageBox.group_id == group_id)
+
+    count_result = await db.execute(count_query)
     total = count_result.scalar()
 
     lat_col, lng_col = _location_columns()
@@ -142,11 +173,21 @@ async def list_boxes(
             func.count(BoxItem.id).label("item_count"),
             lat_col,
             lng_col,
+            BoxGroup.name.label("group_name"),
         )
         .outerjoin(BoxItem, BoxItem.box_id == StorageBox.id)
+        .outerjoin(BoxGroup, BoxGroup.id == StorageBox.group_id)
         .where(StorageBox.owner_id == user.id)
-        .group_by(StorageBox.id)
+        .group_by(StorageBox.id, BoxGroup.name)
     )
+
+    # Apply group filter
+    if group_id is not None:
+        if group_id == -1:
+            # -1 means "Ungrouped"
+            query = query.where(StorageBox.group_id.is_(None))
+        else:
+            query = query.where(StorageBox.group_id == group_id)
 
     if sort == "proximity" and lat is not None and lng is not None:
         user_point = ST_GeogFromText(f"SRID=4326;POINT({lng} {lat})")
@@ -159,8 +200,8 @@ async def list_boxes(
 
     boxes = []
     for row in result.all():
-        box, item_count, box_lat, box_lng = row
-        boxes.append(_box_to_response(box, item_count=item_count, lat=box_lat, lng=box_lng))
+        box, item_count, box_lat, box_lng, group_name = row
+        boxes.append(_box_to_response(box, item_count=item_count, lat=box_lat, lng=box_lng, group_name=group_name))
 
     return BoxListResponse(boxes=boxes, total=total or 0, page=page, page_size=page_size)
 
@@ -183,6 +224,8 @@ async def update_box(
         box.location = _make_point(data.location.latitude, data.location.longitude)
     if data.location_name is not None:
         box.location_name = data.location_name
+    if data.group_id is not None:
+        box.group_id = data.group_id
 
     box.updated_by = user.id
 

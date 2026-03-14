@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { Package, MapPin } from "lucide-react";
+import GroupBadge from "@/components/groups/GroupBadge";
 import type { StorageBox } from "@/types";
 
 interface BoxCardProps {
@@ -31,6 +32,12 @@ export default function BoxCard({ box }: BoxCardProps) {
         <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-3 truncate group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
           {box.name}
         </h3>
+
+        {box.group_name && (
+          <div className="mb-2">
+            <GroupBadge name={box.group_name} />
+          </div>
+        )}
 
         <div className="flex items-center gap-4 text-sm text-slate-500 dark:text-slate-400">
           <span className="flex items-center gap-1">
