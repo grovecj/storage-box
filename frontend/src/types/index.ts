@@ -13,6 +13,20 @@ export interface User {
   updated_at: string;
 }
 
+export interface BoxGroup {
+  id: number;
+  name: string;
+  latitude: number | null;
+  longitude: number | null;
+  box_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GroupListResponse {
+  groups: BoxGroup[];
+}
+
 export interface StorageBox {
   id: number;
   box_code: string;
@@ -20,6 +34,8 @@ export interface StorageBox {
   latitude: number | null;
   longitude: number | null;
   location_name: string | null;
+  group_id: number | null;
+  group_name: string | null;
   item_count: number;
   created_at: string;
   updated_at: string;

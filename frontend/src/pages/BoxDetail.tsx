@@ -17,8 +17,8 @@ import Modal from "@/components/shared/Modal";
 import ItemTable from "@/components/items/ItemTable";
 import AddItemModal from "@/components/items/AddItemModal";
 import TransferModal from "@/components/items/TransferModal";
-import { getBox, getBoxByCode, updateBox, deleteBox, getAuditLog } from "@/api/client";
-import type { StorageBox, BoxItem, AuditLogEntry } from "@/types";
+import { getBox, getBoxByCode, updateBox, deleteBox, getAuditLog, listGroups } from "@/api/client";
+import type { StorageBox, BoxItem, AuditLogEntry, BoxGroup } from "@/types";
 
 // Fix default marker icon (Leaflet + bundlers issue)
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
@@ -45,6 +45,8 @@ export default function BoxDetail() {
   const [editingLocation, setEditingLocation] = useState(false);
   const [locationInput, setLocationInput] = useState("");
   const [showMap, setShowMap] = useState(false);
+  const [editingGroup, setEditingGroup] = useState(false);
+  const [groups, setGroups] = useState<BoxGroup[]>([]);
 
   // Audit log
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
@@ -78,6 +80,18 @@ export default function BoxDetail() {
   useEffect(() => {
     fetchBox();
   }, [fetchBox]);
+
+  useEffect(() => {
+    const fetchGroupsData = async () => {
+      try {
+        const res = await listGroups();
+        setGroups(res.data.groups.filter(g => g.id !== -1)); // Exclude virtual "Ungrouped"
+      } catch (error) {
+        console.error("Failed to fetch groups:", error);
+      }
+    };
+    fetchGroupsData();
+  }, []);
 
   useEffect(() => {
     if (activeTab === "audit" && box) fetchAuditLog();
@@ -136,6 +150,13 @@ export default function BoxDetail() {
 
   const handleItemsChanged = () => {
     setRefreshKey((k) => k + 1);
+    fetchBox();
+  };
+
+  const handleSaveGroup = async (groupId: number | null) => {
+    if (!box) return;
+    await updateBox(box.id, { group_id: groupId });
+    setEditingGroup(false);
     fetchBox();
   };
 
@@ -285,6 +306,42 @@ export default function BoxDetail() {
                 Created{" "}
                 {new Date(box.created_at).toLocaleDateString()}
               </span>
+            </div>
+
+            {/* Group assignment */}
+            <div className="mt-3 text-sm text-slate-500 dark:text-slate-400">
+              {editingGroup ? (
+                <div className="flex items-center gap-2">
+                  <select
+                    value={box.group_id || ""}
+                    onChange={(e) => handleSaveGroup(e.target.value ? parseInt(e.target.value) : null)}
+                    className="text-sm bg-slate-50 dark:bg-navy-800 border border-slate-200 dark:border-navy-700 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-amber-400/50 text-slate-800 dark:text-slate-100"
+                    autoFocus
+                  >
+                    <option value="">No Group</option>
+                    {groups.map(g => (
+                      <option key={g.id} value={g.id}>{g.name}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => setEditingGroup(false)}
+                    className="px-2 py-1 text-xs text-slate-500 hover:text-slate-700"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setEditingGroup(true)}
+                  className="flex items-center gap-1 hover:text-amber-500 transition-colors cursor-pointer"
+                  title="Change group"
+                >
+                  <span className="text-xs font-medium">
+                    Group: {box.group_name || "None"}
+                  </span>
+                  <Edit size={12} />
+                </button>
+              )}
             </div>
 
             {/* Inline map */}
